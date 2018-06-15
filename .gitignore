@@ -1,0 +1,5 @@
+#Ignore all .ps files
+*.ps
+
+#Ignore all text editor temporary files
+*~
