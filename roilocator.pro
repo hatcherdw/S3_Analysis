@@ -1,106 +1,124 @@
-FUNCTION roilocator, flux, wavelength, patch
+FUNCTION roilocator, FLUX=inputFlux, WAVELENGTH=inputWavelength, patchedFlux
 
-;+
-;Name:
-;		roilocator
-;Purpose:
-;	    Locates regions of interest based on extremea locations and heights.	
-;Calling sequence:
-;		patch = roilocator(flux, wavelength)
-;Input:
-;		flux    ;   1D array of flux values
-;       wavelength  ;   1D array of wavelengths
-;Output:
-;       patched_flux    ;   input flux values with NaNs inserted into signal regions
-;Keywords:
-;	    None
-;Author:
-;		Daniel Hatcher, 2018
-;-
+;Set compile options 
+COMPILE_OPT IDL2
 
-COMPILE_OPT IDL2			                                                ;Set compile options
+;Check input existence
+IF NOT KEYWORD_SET(inputFlux) THEN BEGIN
+    MESSAGE, 'Please provide flux input array.'
+ENDIF
+IF NOT KEYWORD_SET(inputWavelength) THEN BEGIN
+    MESSAGE, 'Please provide wavelength input array.'
+ENDIF
 
-width = 5                                                                   ;Smoothing width
-npatches = 7                                                                ;Number of patches
-n = N_ELEMENTS(flux)                                                        ;Number of flux values
+;Check input sizes
+fluxSizeVector = SIZE(inputFlux)
+wavelengthSizeVector = SIZE(inputWavelength)
+IF fluxSizeVector[0] GT 1 THEN BEGIN
+    MESSAGE, 'Flux array has more than one dimension.'
+ENDIF
+IF wavelengthSizeVector[0] GT 1 THEN BEGIN
+    MESSAGE, 'Wavelength array has more than one dimension.'
+ENDIF
+IF fluxSizeVector[-1] NE wavelengthSizeVector[-1] THEN BEGIN
+    MESSAGE, 'Input sizes do not match'
+ENDIF
+IF fluxSizeVector[-1] LT 2 THEN BEGIN
+    MESSAGE, 'Flux array has less than 2 elements!'
+ENDIF
+IF wavelengthSizeVector[-1] LT 2 THEN BEGIN
+    MESSAGE, 'Wavelength array has less than 2 elements!'
+ENDIF
 
-s = SMOOTH(flux, width)                                                     ;Smoothed flux values
+;Check input types
+IF STRCMP(SIZE(inputFlux,/TNAME),'FLOAT') EQ 0 THEN BEGIN
+    MESSAGE, 'Flux input is not of type FLOAT.'
+ENDIF
+IF STRCMP(SIZE(inputWavelength,/TNAME),'FLOAT') EQ 0 THEN BEGIN
+    MESSAGE, 'Wavelength input is not of type FLOAT.'
+ENDIF
 
-pp = LIST()                                                                 ;Create dynamic array for peak positions 
-pv = LIST()                                                                 ;Create dynamic array for peak values
+;Smooth flux
+smoothingWidth = 5
+smoothedFlux = SMOOTH(inputFlux,smoothingWidth)
 
-FOR i = (width+1), n-(width+1) DO BEGIN                                     ;Search for peaks (extrema)
-    IF $ 
-    (s[i] GE s[i-1] AND s[i] GE s[i+1]) $
-    OR $ 
-    (s[i] LE s[i-1] AND s[i] LE s[i+1]) $
-    THEN BEGIN
-        pp.ADD, i                                                           ;Store peak position
-        pv.ADD, s[i]                                                        ;Store peak value
+;Find extrema
+peakPositions = LIST()
+peakAmplitudes = LIST()
+numValues = N_ELEMENTS(inputFlux)
+FOR i = (smoothingWidth+1), numValues-(smoothingWidth+1) DO BEGIN
+    left = smoothedFlux[i-1]
+    center = smoothedFlux[i]
+    right = smoothedFlux[i+1]
+    IF isextremum(left,center,right) THEN BEGIN
+        peakPositions.ADD, i
+        peakAmplitudes.ADD, center
     ENDIF    
 ENDFOR
+peakPositionsArray = peakPositions.TOARRAY()
+peakAmplitudesArray = peakAmplitudes.TOARRAY()
 
-ppa = pp.TOARRAY()                                                          ;Peak position array                   
-pva = pv.TOARRAY()                                                          ;Peak value array
-npoints = N_ELEMENTS(ppa)                                                   ;Number of detected peaks
-
-distance = LONARR(3,npoints-2)                                              ;Create distance matrix
-
-FOR i = 1, npoints-2 DO BEGIN                                               ;Compute interpeak distances
-    lhdist = ppa[i] - ppa[i-1]                                              ;Left horizontal distance
-    rhdist = ppa[i+1] - ppa[i]                                              ;Right horizontal distance
-    lvdist = ABS(pva[i] - pva[i-1])                                         ;Left vertical distance
-    rvdist = ABS(pva[i] - pva[i+1])                                         ;Right vertical distance
-    ldist = SQRT(lhdist^2 + lvdist^2)                                       ;Left pythag. distance       
-    rdist = SQRT(rhdist^2 + rvdist^2)                                       ;Right pythag. distance
-    sum = ldist + rdist
-    diff = ABS(ldist - rdist)
-    distance[0,i-1] = lhdist
-    distance[1,i-1] = rhdist
-    distance[2,i-1] = (ldist + rdist) * ABS(sum/diff)                       ;"Normalized" distance
-                                                                            ;symmetric peaks have more weight
+;Compute peak significance 
+numPeaks = N_ELEMENTS(peakPositionsArray)
+distanceMatrix = FLTARR(3,numPeaks-2)
+FOR i = 1, numPeaks-2 DO BEGIN
+    leftHorDist = peakPositionsArray[i] - peakPositionsArray[i-1] 
+    rightHorDist = peakPositionsArray[i+1] - peakPositionsArray[i] 
+    leftVertDist = ABS(peakAmplitudesArray[i] - peakAmplitudesArray[i-1])
+    rightVertDist = ABS(peakAmplitudesArray[i] - peakAmplitudesArray[i+1])
+    leftDistance = SQRT(leftHorDist^2 + leftVertDist^2)
+    rightDistance = SQRT(rightHorDist^2 + rightVertDist^2)
+    sumLeftRight = leftDistance + rightDistance
+    diffLeftRight = ABS(leftDistance - rightDistance)
+    distanceMatrix[0,i-1] = leftHorDist
+    distanceMatrix[1,i-1] = rightHorDist
+    distanceMatrix[2,i-1] = sumLeftRight * ABS(sumLeftRight/diffLeftRight) 
 ENDFOR
 
-dist_order = REVERSE(SORT(distance[2,*]))                                   ;Find sorted indices 
-
-FOR i = 0, 2 DO BEGIN                                                       ;Sort peaks
-    distance[i,*] = distance[i, dist_order]             
+;Sort peaks by signifigance
+sortedDistanceIndices = REVERSE(SORT(distanceMatrix[2,*]))
+sortedPeakPositions = peakPositionsArray[sortedDistanceIndices + 1]
+FOR i = 0, 2 DO BEGIN
+    distanceMatrix[i,*] = distanceMatrix[i,sortedDistanceIndices]
 ENDFOR
 
-ppa_order = ppa[dist_order + 1]                                             ;Sort point position array
-ppa_patches = ppa_order[0:npatches-1]                                       ;Select patch center points
-positions = LIST()
-
-FOR i = 0, npatches-1 DO BEGIN
-    patch_size = distance[0,i]+distance[1,i]                                ;Compute patch size
-    patch_positions = LINDGEN(patch_size, START=ppa_order[i]-distance[0,i]) ;Create patch array
-    FOR j =0, patch_size-1 DO BEGIN 
-        positions.ADD, patch_positions[j]                                   ;Fill running list of patch positions 
+;Define patch areas
+numPatches = 7
+patchesIndArray = LINDGEN(numPatches)
+patchCenters = sortedPeakPositions[patchesIndArray]
+patchPositions = LIST()
+FOR i = 0, numPatches-1 DO BEGIN
+    currentPatchSize = distanceMatrix[0,i] + distanceMatrix[1,i]
+    currentPatchStart = sortedPeakPositions[i] - distanceMatrix[0,i]
+    currentPatchPositions = LINDGEN(currentPatchSize,START=currentPatchStart)
+    FOR j = 0, currentPatchSize-1 DO BEGIN
+        patchPositions.ADD, currentPatchPositions[j]
     ENDFOR
 ENDFOR
+patchPositionsArray = patchPositions.TOARRAY()
 
-pa = positions.TOARRAY()
+;Sort list of patch positions
+sortedPatchPositions = patchPositionsArray[SORT(patchPositionsArray)]
 
-pa_sorted = pa[SORT(pa)]                                                    ;Sort cumulative list
-pa_sorted_unique = pa_sorted[UNIQ(pa_sorted)]                               ;Subset of unique values
+;Subset using unique positions 
+uniquePatchPositions = sortedPatchPositions[UNIQ(sortedPatchPositions)]
 
-x = LIST()
-
-FOR i = 0, n-1 DO BEGIN
-    ind = WHERE(i EQ pa_sorted_unique, count)
+;Create patched arrays
+patchedPixels = LIST()
+FOR i = 0, numValues DO BEGIN
+    isPatch = WHERE(i EQ uniquePatchPositions, count)
     IF count EQ 0 THEN BEGIN
-        x.ADD, i
-    ENDIF 
+        patchedPixels.ADD, i
+    ENDIF
 ENDFOR
-xa = x.TOARRAY()
+patchedPixelsArray = patchedPixels.TOARRAY()
+patchedWavelengths = inputWavelength[patchedPixelsArray]
+patchedFlux = inputFlux[patchedPixelsArray]
 
-patched_wavelength = wavelength[xa]
-patched_flux = flux[xa]
+;Return patched arrays in structure
+output = {roilocatorOutput, $
+    flux    :   patchedFlux, $
+    wavelength  :   patchedWavelengths}
 
-patch = {patches, $
-         wl :   patched_wavelength, $
-         fl :   patched_flux}
-
-RETURN, patch
-
-END 
+RETURN, output
+END
