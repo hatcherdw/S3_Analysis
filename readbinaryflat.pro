@@ -11,12 +11,12 @@ ENDIF ELSE BEGIN
     flatData = FLTARR(512,16)                  
 ENDELSE 
 
-;If no input path provided, use default file
-IF NOT KEYWORD_SET(file) THEN BEGIN                
-    defaultDirectory = '/home/hatcher/RAW-FLATS/'
+;If no input path provided, use default flat
+IF NOT KEYWORD_SET(inputPath) THEN BEGIN                
+    defaultDirectory = '/home/hatcher/RAW-FLATS-ALL-NEW-CCD/'
     defaultFile = '41589.RAW.spec'
     path = defaultDirectory + defaultFile                  
-    PRINT, 'Using default flat file: ' + file
+    PRINT, 'Using default flat file: ' + path
 ENDIF ELSE BEGIN
     path = inputPath
 ENDELSE
