@@ -1,35 +1,16 @@
 FUNCTION restoreframe, FRAME=inputFrame
 
-;+
-;Name:
-;		restoreframe
-;Purpose:
-;		Restore frame data from IDL saved variables
-;Calling sequence:
-;		
-;Input:
-;		
-;Output:
-;		
-;Keywords:
-;       FRAME   :   frame number
-;Author:
-;		Daniel Hatcher, 2018
-;-
-
-;---+----1----+----2----+----3----+----4----+----5----+---6-----+----7----+----8
-
 ;Set compile options 
 COMPILE_OPT IDL2		                                
 
 ;Check for input
 IF NOT KEYWORD_SET(inputFrame) THEN BEGIN
-    MESSAGE, 'Provide a frame number.'
+    MESSAGE, 'Provide a frame number!'
 ENDIF
 
 ;Check input type
 IF STRCMP(SIZE(inputFrame,/TNAME),'LONG') EQ 0 THEN BEGIN
-    MESSAGE, 'Frame number is not of type LONG.'
+    MESSAGE, 'Frame number is not of type LONG!'
 ENDIF 
 
 ;Change to data directory

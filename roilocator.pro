@@ -1,3 +1,23 @@
+;Utility module to test for local maximum or local minimum
+FUNCTION roilocator_isextremum, inputLeft, inputCenter, inputRight
+
+COMPILE_OPT IDL2
+
+IF ((inputCenter GE inputLeft) AND (inputCenter GE inputRight)) THEN BEGIN
+    returnValue = 1B
+ENDIF ELSE IF (inputCenter LE inputLeft) AND (inputCenter LE inputRight) THEN $
+    BEGIN
+    returnValue = 1B
+ENDIF ELSE BEGIN
+    returnValue = 0B
+ENDELSE
+
+RETURN, returnValue
+END
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;Command module
 FUNCTION roilocator, FLUX=inputFlux, WAVELENGTH=inputWavelength, patchedFlux
 
 ;Set compile options 
@@ -5,23 +25,23 @@ COMPILE_OPT IDL2
 
 ;Check input existence
 IF NOT KEYWORD_SET(inputFlux) THEN BEGIN
-    MESSAGE, 'Please provide flux input array.'
+    MESSAGE, 'Please provide flux input array!'
 ENDIF
 IF NOT KEYWORD_SET(inputWavelength) THEN BEGIN
-    MESSAGE, 'Please provide wavelength input array.'
+    MESSAGE, 'Please provide wavelength input array!'
 ENDIF
 
 ;Check input sizes
 fluxSizeVector = SIZE(inputFlux)
 wavelengthSizeVector = SIZE(inputWavelength)
 IF fluxSizeVector[0] GT 1 THEN BEGIN
-    MESSAGE, 'Flux array has more than one dimension.'
+    MESSAGE, 'Flux array has more than one dimension!'
 ENDIF
 IF wavelengthSizeVector[0] GT 1 THEN BEGIN
-    MESSAGE, 'Wavelength array has more than one dimension.'
+    MESSAGE, 'Wavelength array has more than one dimension!'
 ENDIF
 IF fluxSizeVector[-1] NE wavelengthSizeVector[-1] THEN BEGIN
-    MESSAGE, 'Input sizes do not match'
+    MESSAGE, 'Input sizes do not match!'
 ENDIF
 IF fluxSizeVector[-1] LT 2 THEN BEGIN
     MESSAGE, 'Flux array has less than 2 elements!'
@@ -32,10 +52,10 @@ ENDIF
 
 ;Check input types
 IF STRCMP(SIZE(inputFlux,/TNAME),'FLOAT') EQ 0 THEN BEGIN
-    MESSAGE, 'Flux input is not of type FLOAT.'
+    MESSAGE, 'Flux input is not of type FLOAT!'
 ENDIF
 IF STRCMP(SIZE(inputWavelength,/TNAME),'FLOAT') EQ 0 THEN BEGIN
-    MESSAGE, 'Wavelength input is not of type FLOAT.'
+    MESSAGE, 'Wavelength input is not of type FLOAT!'
 ENDIF
 
 ;Smooth flux
@@ -50,7 +70,7 @@ FOR i = (smoothingWidth+1), numValues-(smoothingWidth+1) DO BEGIN
     left = smoothedFlux[i-1]
     center = smoothedFlux[i]
     right = smoothedFlux[i+1]
-    IF isextremum(left,center,right) THEN BEGIN
+    IF roilocator_isextremum(left,center,right) THEN BEGIN
         peakPositions.ADD, i
         peakAmplitudes.ADD, center
     ENDIF    

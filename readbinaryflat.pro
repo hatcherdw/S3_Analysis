@@ -1,44 +1,31 @@
-FUNCTION readbinaryflat, flat_data, FILE = file, BIT32OFF = bit32off
+FUNCTION readbinaryflat, flatData, FILE = inputPath, BIT32OFF = bit32off
 
-;+
-;Name:
-;		readbinaryflat
-;Purpose:
-;		Function for reading binary flat files
-;Calling sequence:
-;		flat = readbinaryflat(file)
-;Input:
-;		None
-;Output:
-;		flat_data   :   512 columns, 16 rows    
-;Keywords:
-;		BIT32   :   New CCD format switch. Default is ON (BIT32 not specified). 
-;       FILE    :   Path to flat file. Default is frame 41589.
-;Author:
-;		Daniel Hatcher, 2018
-;-
+;Set compile options
+COMPILE_OPT IDL2			                    
 
-COMPILE_OPT IDL2			                    ;Set compile options
-
-IF KEYWORD_SET(bit32off) THEN BEGIN             ;Turn off 32-bit
+;Check if 32-bit turned off
+IF KEYWORD_SET(bit32off) THEN BEGIN            
     PRINT, 'BIT32OFF'
-    flat_data = UINTARR(512,16)                  
+    flatData = UINTARR(512,16)                  
 ENDIF ELSE BEGIN
-    flat_data = FLTARR(512,16)                  ;32-bit on by default
+    flatData = FLTARR(512,16)                  
 ENDELSE 
 
-IF NOT KEYWORD_SET(file) THEN BEGIN             ;If no file provided, use default file
-    def_dir = '/home/hatcher/RAW-FLATS/'
-    def_file = '41589.RAW.spec'
-    file = def_dir + def_file                  
+;If no input path provided, use default file
+IF NOT KEYWORD_SET(file) THEN BEGIN                
+    defaultDirectory = '/home/hatcher/RAW-FLATS/'
+    defaultFile = '41589.RAW.spec'
+    path = defaultDirectory + defaultFile                  
     PRINT, 'Using default flat file: ' + file
-ENDIF
+ENDIF ELSE BEGIN
+    path = inputPath
+ENDELSE
 
-OPENR, flat_file_unit, file, /GET_LUN
-READU, flat_file_unit, flat_data
-CLOSE, flat_file_unit
-FREE_LUN, flat_file_unit
+OPENR, logicalUnitNumber, path, /GET_LUN
+READU, logicalUnitNumber, flatData
+CLOSE, logicalUnitNumber
+FREE_LUN, logicalUnitNumber
 
-RETURN, flat_data
+RETURN, flatData
 
 END 
