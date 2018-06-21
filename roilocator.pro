@@ -51,11 +51,11 @@ IF wavelengthSizeVector[-1] LT 2 THEN BEGIN
 ENDIF
 
 ;Check input types
-IF STRCMP(SIZE(inputFlux,/TNAME),'FLOAT') EQ 0 THEN BEGIN
-    MESSAGE, 'Flux input is not of type FLOAT!'
+IF STRCMP(SIZE(inputFlux,/TNAME),'DOUBLE') EQ 0 THEN BEGIN
+    MESSAGE, 'Flux input is not of type DOUBLE!'
 ENDIF
-IF STRCMP(SIZE(inputWavelength,/TNAME),'FLOAT') EQ 0 THEN BEGIN
-    MESSAGE, 'Wavelength input is not of type FLOAT!'
+IF STRCMP(SIZE(inputWavelength,/TNAME),'DOUBLE') EQ 0 THEN BEGIN
+    MESSAGE, 'Wavelength input is not of type DOUBLE!'
 ENDIF
 
 ;Smooth flux
