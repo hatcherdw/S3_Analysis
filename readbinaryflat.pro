@@ -1,25 +1,33 @@
-FUNCTION readbinaryflat, flatData, FILE = inputPath, BIT32OFF = bit32off
+FUNCTION readbinaryflat, FRAME = inputFrame, flatData
 
 ;Set compile options
 COMPILE_OPT IDL2			                    
 
-;Check if 32-bit turned off
-IF KEYWORD_SET(bit32off) THEN BEGIN            
-    PRINT, 'BIT32OFF'
-    flatData = UINTARR(512,16)                  
+;Check input existence and type
+IF KEYWORD_SET(inputFrame) THEN BEGIN
+    type = SIZE(inputFrame,/TNAME)
+    isString = STRCMP(type,'STRING')
+    CASE isString OF
+        1 : frame = inputFrame
+        0 : MESSAGE, 'Input is not of type STRING!'
+    ENDCASE
 ENDIF ELSE BEGIN
-    flatData = FLTARR(512,16)                  
-ENDELSE 
-
-;If no input path provided, use default flat
-IF NOT KEYWORD_SET(inputPath) THEN BEGIN                
-    defaultDirectory = '/home/hatcher/RAW-FLATS-ALL-NEW-CCD/'
-    defaultFile = '41589.RAW.spec'
-    path = defaultDirectory + defaultFile                  
-    PRINT, 'Using default flat file: ' + path
-ENDIF ELSE BEGIN
-    path = inputPath
+    frame = '41589'
+    PRINT, 'Using default flat frame: ' + frame
 ENDELSE
+
+;Check if old or new CCD 
+IF LONG(frame) GE 22684 THEN BEGIN
+    ;NEW CCD
+    flatData = FLTARR(512,16)
+ENDIF ELSE BEGIN
+    ;OLD CCD
+    flatData = UINTARR(512,16)
+ENDELSE
+
+directory = '/home/hatcher/RAW-FLATS-ALL-NEW-CCD/'
+extension = '.RAW.spec'
+path = directory + frame + extension
 
 OPENR, logicalUnitNumber, path, /GET_LUN
 READU, logicalUnitNumber, flatData
