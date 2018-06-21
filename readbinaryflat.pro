@@ -12,8 +12,7 @@ IF KEYWORD_SET(inputFrame) THEN BEGIN
         0 : MESSAGE, 'Input is not of type STRING!'
     ENDCASE
 ENDIF ELSE BEGIN
-    frame = '41589'
-    PRINT, 'Using default flat frame: ' + frame
+    MESSAGE, 'Please provide a frame number string!'
 ENDELSE
 
 ;Check if old or new CCD 
