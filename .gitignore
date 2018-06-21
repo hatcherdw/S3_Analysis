@@ -3,3 +3,6 @@
 
 #Ignore all text editor temporary files
 *~
+
+#Ignore prototyping script
+control.pro
