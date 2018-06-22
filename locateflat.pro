@@ -1,4 +1,4 @@
-FUNCTION locateflat, DATE=inputDate, NUMFLATS=inputNumFlats
+PRO locateflat, DATE=inputDate, NUMFLATS=inputNumFlats
 
 ;Given the date of a frame, find the flat(s) that are closest in time.
 ;User can specify how many flats to locate. 
@@ -47,12 +47,14 @@ IF KEYWORD_SET(inputNumFlats) THEN BEGIN
     nearest = LONARR(inputNumFlats)
     nearestIndex = LINDGEN(inputNumFlats)
     nearest = sortedFramesArray[nearestIndex]
+    count = inputNumFlats
+    PRINT, nearest
 ENDIF ELSE BEGIN
     nearest = lessThanWeekFrames
-    PRINT, 'Found ' + STRING(count) + 'flat frames within one week of ' + $
+    numFlats = STRING(count)
+    PRINT, 'Found ' + numFlats.TRIM() + ' flat frames within one week of ' + $
         inputDate
+    PRINT, nearest
 ENDELSE
-
-RETURN, nearest
 
 END
