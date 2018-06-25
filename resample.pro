@@ -17,15 +17,19 @@ FUNCTION resample, wavelength, flux
 ;		Daniel Hatcher, 2018
 ;-
 
-COMPILE_OPT IDL2			                                            ;Set compile options
+;Set compile options
+COMPILE_OPT IDL2
 
-nsamples = 512                                                          ;Number of samples after resampling
+;Number of samples after resampling.
+nsamples = 512 
 min_wave = MIN(wavelength)
 max_wave = MAX(wavelength)
-dsamples = (max_wave - min_wave) / nsamples                             ;Resample spacing
+;Resample spacing
+dsamples = (max_wave - min_wave) / nsamples 
 samples = FINDGEN(nsamples, START=min_wave, INCREMENT=dsamples)
 
-y_values = INTERPOL(flux, wavelength, samples)                          ;interpolation using new samples
+;Interpolate using new samples
+y_values = INTERPOL(flux, wavelength, samples) 
 
 resampled = {resampled_values, $
              x  :   samples, $
