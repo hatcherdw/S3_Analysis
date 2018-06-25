@@ -9,8 +9,7 @@ IF STRCMP(SIZE(inputFrame,/TNAME),'STRING') EQ 0 THEN BEGIN
 ENDIF 
 
 ;Change to data directory
-allFrameDirectory = '/home/hatcher/NEW-CCD-all-orders-data/'
-CD, allFrameDirectory
+CD, !FRAMEDIR 
 
 ;List all files with matching frame number and save list 
 SPAWN, 'ls *' + inputFrame + '*', savedFile 

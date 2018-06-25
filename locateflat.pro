@@ -5,9 +5,8 @@ PRO locateflat, DATE=inputDate, NUMFLATS=inputNumFlats
 ;Default is flat(s) occuring within 7 days. 
 
 ;Read flat dates and frame numbers from list
-flatList = '/home/hatcher/Lists/flat_list_new_CCD.txt'
-OPENR,logicalUnitNumber, flatList, /GET_LUN
-numLines = FILE_LINES(flatList)
+OPENR, logicalUnitNumber, !FLATLIST, /GET_LUN
+numLines = FILE_LINES(!FLATLIST)
 line = ''
 dates = LIST()
 frames = LIST()

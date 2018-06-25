@@ -24,9 +24,8 @@ ENDIF ELSE BEGIN
     flatData = UINTARR(512,16)
 ENDELSE
 
-directory = '/home/hatcher/RAW-FLATS-ALL-NEW-CCD/'
 extension = '.RAW.spec'
-path = directory + frame + extension
+path = !FLATDIR + frame + extension
 
 OPENR, logicalUnitNumber, path, /GET_LUN
 READU, logicalUnitNumber, flatData
