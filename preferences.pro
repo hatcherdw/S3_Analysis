@@ -10,7 +10,7 @@ DEFSYSV, '!FLATLIST', flatListDir + flatListFile, 1
 flatDir = '/home/central/hatch1dw/RAW-FLATS-ALL-NEW-CCD/'
 DEFSYSV, '!FLATDIR', flatDir, 1
 
-frameDir = '/home/hatcher/NEW-CCD-all-orders-data/'
+frameDir = '/home/central/hatch1dw/NEW-CCD-all-orders-data/'
 DEFSYSV, '!FRAMEDIR', frameDir, 1
 
 testFlatListDir = '/home/central/hatch1dw/Programs/S3_Analysis/'
