@@ -3,4 +3,4 @@ modules.
 
 Use the preferences.pro procedure to set system-specific variables like data
 directory names and file extensions. Add a call to this procedure in your 
-IDL startup file. 
+IDL startup file to initialize.  
