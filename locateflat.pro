@@ -11,7 +11,7 @@ frames = LIST()
 FOR i = 0, numLines-1 DO BEGIN
     READF, logicalUnitNumber, line
     firstCharacter = STRMID(line,0,1)
-    IF STRCMP(firstCharacter,'#') EQ 0 THEN BEGIN
+    IF STRCMP(firstCharacter,'#') EQ 0 AND STRLEN(line) GT 0 THEN BEGIN
         dates.ADD, STRMID(line,0,10)
         frames.ADD, STRMID(line,13,5)       
     ENDIF
