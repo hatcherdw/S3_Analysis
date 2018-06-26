@@ -1,8 +1,6 @@
-PRO locateflat, DATE=inputDate, NUMFLATS=inputNumFlats
+FUNCTION locateflat, DATE=inputDate
 
-;Given the date of a frame, find the flat(s) that are closest in time.
-;User can specify how many flats to locate. 
-;Default is flat(s) occuring within 7 days. 
+;Given the date of a frame, find the flat that is closest in time.
 
 ;Read flat dates and frame numbers from list
 OPENR, logicalUnitNumber, !FLATLIST, /GET_LUN
@@ -18,6 +16,8 @@ FOR i = 0, numLines-1 DO BEGIN
         frames.ADD, STRMID(line,13,5)       
     ENDIF
 ENDFOR 
+CLOSE, logicalUnitNumber
+FREE_LUN, logicalUnitNumber
 datesArray = dates.TOARRAY()
 framesArray = frames.TOARRAY() 
 
@@ -37,23 +37,9 @@ FOR i = 0, numDates-1 DO BEGIN
     diffJulDates[i] = ABS(julianDate - julianDatesArray[i])
 ENDFOR
 
-;Select flat(s) with nearest date(s)
+;Select flat with nearest date
 sortedDiffJulDates = SORT(diffJulDates)
 sortedFramesArray = framesArray[sortedDiffJulDates]
-lessThanWeek = WHERE(diffJulDates LT 7,count)
-lessThanWeekFrames = framesArray[lessThanWeek] 
-IF KEYWORD_SET(inputNumFlats) THEN BEGIN
-    nearest = LONARR(inputNumFlats)
-    nearestIndex = LINDGEN(inputNumFlats)
-    nearest = sortedFramesArray[nearestIndex]
-    count = inputNumFlats
-    PRINT, nearest
-ENDIF ELSE BEGIN
-    nearest = lessThanWeekFrames
-    numFlats = STRING(count)
-    PRINT, 'Found ' + numFlats.TRIM() + ' flat frames within one week of ' + $
-        inputDate
-    PRINT, nearest
-ENDELSE
+RETURN, sortedFramesArray[0]
 
 END
