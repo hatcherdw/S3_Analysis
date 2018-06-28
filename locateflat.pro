@@ -3,8 +3,10 @@ FUNCTION locateflat, DATE=inputDate
 ;Given the date of a frame, find the flat that is closest in time.
 
 ;Read flat dates and frame numbers from list
-OPENR, logicalUnitNumber, !FLATLIST, /GET_LUN
-numLines = FILE_LINES(!FLATLIST)
+IF sysvarexists('!FLATLIST') THEN BEGIN
+    OPENR, logicalUnitNumber, !FLATLIST, /GET_LUN
+    numLines = FILE_LINES(!FLATLIST)
+ENDIF
 line = ''
 dates = LIST()
 frames = LIST()
