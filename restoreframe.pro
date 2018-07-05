@@ -9,15 +9,18 @@ IF STRCMP(SIZE(inputFrame,/TNAME),'STRING') EQ 0 THEN BEGIN
 ENDIF 
 
 ;Change to data directory
-CD, !FRAMEDIR 
+IF sysvarexists('!FRAMEDIR') THEN CD, !FRAMEDIR 
+
+;Trim string
+trimmedFrame = inputFrame.TRIM()
 
 ;List all files with matching frame number and save list 
-SPAWN, 'ls *' + inputFrame + '*', savedFile 
+SPAWN, 'ls *' + trimmedFrame + '*', savedFile
 
 ;If more than one file found, stop
 foundFiles = SIZE(savedFile, /N_ELEMENTS)
 IF foundFiles GT 1 THEN BEGIN
-    MESSAGE, 'Found more than one file with frame number ' + inputFrame
+    MESSAGE, 'Found more than one file with frame number ' + trimmedFrame
 ENDIF
 
 ;Restore variables
