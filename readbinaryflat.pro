@@ -12,7 +12,7 @@ IF KEYWORD_SET(inputFrame) THEN BEGIN
         0 : MESSAGE, 'Input is not of type STRING!'
     ENDCASE
 ENDIF ELSE BEGIN
-    MESSAGE, 'Please provide a frame number string!'
+    MESSAGE, 'Calling sequence is flat = readbinaryflat(FRAME=<frame>)'
 ENDELSE
 
 ;Check if old or new CCD 
@@ -25,7 +25,9 @@ ENDIF ELSE BEGIN
 ENDELSE
 
 extension = '.RAW.spec'
-path = !FLATDIR + frame + extension
+IF sysvarexists('!FLATDIR') THEN BEGIN  
+    path = !FLATDIR + frame + extension
+ENDIF
 
 OPENR, logicalUnitNumber, path, /GET_LUN
 READU, logicalUnitNumber, flatData
