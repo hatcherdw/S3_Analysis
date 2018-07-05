@@ -2,6 +2,12 @@ FUNCTION locateflat, DATE=inputDate
 
 ;Given the date of a frame, find the flat that is closest in time.
 
+IF NOT KEYWORD_SET(inputDate) THEN BEGIN
+    MESSAGE, 'Calling sequence is flat = locateflat(DATE=<date>)'
+ENDIF ELSE IF STRCMP(SIZE(inputDate,/TNAME),'STRING') EQ 0 THEN BEGIN
+    MESSAGE, 'Input is not of type STRING!'
+ENDIF
+
 ;Read flat dates and frame numbers from list
 IF sysvarexists('!FLATLIST') THEN BEGIN
     OPENR, logicalUnitNumber, !FLATLIST, /GET_LUN
