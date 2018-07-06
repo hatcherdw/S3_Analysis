@@ -1,9 +1,26 @@
 FUNCTION locateflat, DATE=inputDate
 
-;Given the date of a frame, find the flat that is closest in time.
+;+
+; Name:
+;       locateflat
+; Purpose:
+;       Given the date of a frame, find the flat that is closest in time
+; Calling sequence:
+;       flat = locateflat(DATE=date)
+; Input:
+;       None
+; Output:
+;       flat    :   string frame number   
+; Keywords:
+;       inputDate   :   string YYYY-MM-DD
+; Author and history:
+;       Daniel Hatcher, 2018
+;-
+
+COMPILE_OPT IDL2
 
 IF NOT KEYWORD_SET(inputDate) THEN BEGIN
-    MESSAGE, 'Calling sequence is flat = locateflat(DATE=<date>)'
+    MESSAGE, 'Calling sequence is flat = locateflat(DATE=date)'
 ENDIF ELSE IF STRCMP(SIZE(inputDate,/TNAME),'STRING') EQ 0 THEN BEGIN
     MESSAGE, 'Input is not of type STRING!'
 ENDIF
@@ -48,6 +65,7 @@ ENDFOR
 ;Select flat with nearest date
 sortedDiffJulDates = SORT(diffJulDates)
 sortedFramesArray = framesArray[sortedDiffJulDates]
-RETURN, sortedFramesArray[0]
+flat = sortedFramesArrray[0]
+RETURN, flat
 
 END

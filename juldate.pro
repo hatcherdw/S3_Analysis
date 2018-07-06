@@ -1,7 +1,23 @@
 FUNCTION juldate, inputDate, julianDate
 
-;Compute Julian date using dates as formatted in the SSS logs
-;Format: YYYY-MM-DD
+;+
+; Name:
+;       juldate
+; Purpose:
+;       Compute Julian date using dates as formatted in SSS logs 
+; Calling sequence:
+;       juldate, inputDate     
+; Input:
+;       inputDate   :   string formatted YYYY-MM-DD
+; Output:
+;       julianDate  :   integer   
+; Keywords:
+;       None
+; Author and history:
+;       Daniel Hatcher, 2018
+;-
+
+COMPILE_OPT IDL2
 
 ;Check input type
 IF STRCMP(SIZE(inputDate,/TNAME),'STRING') EQ 0 THEN BEGIN

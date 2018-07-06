@@ -1,6 +1,22 @@
 FUNCTION readbinaryflat, FRAME = inputFrame, flatData
 
-;Set compile options
+;+
+; Name:
+;       readbinaryflat
+; Purpose:
+;       Read flat files saved in binary format
+; Calling sequence:
+;       flat = readbinaryflat(FRAME=frame)
+; Input:
+;       None
+; Output:
+;       flatData    :   512x16 float array
+; Keywords:
+;       FRAME   :   frame number   
+; Author and history:
+;       Daniel Hatcher, 2018
+;-
+
 COMPILE_OPT IDL2			                    
 
 ;Check input existence and type

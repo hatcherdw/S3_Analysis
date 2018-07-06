@@ -1,5 +1,5 @@
-;Utility module to test for local maximum or local minimum
 FUNCTION roilocator_isextremum, inputLeft, inputCenter, inputRight
+;Utility module to test for local maximum or local minimum
 
 COMPILE_OPT IDL2
 
@@ -16,11 +16,26 @@ RETURN, returnValue
 END
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+FUNCTION roilocator, FLUX=inputFlux, WAVELENGTH=inputWavelength 
 
-;Command module
-FUNCTION roilocator, FLUX=inputFlux, WAVELENGTH=inputWavelength, patchedFlux
+;+
+; Name:
+;       roilocator
+; Purpose:
+;       Locate and remove regions of apparent signal 
+; Calling sequence:
+;       patchedArray = roilocator(FLUX=inputFlux,WAVELENGTH=inputWavelength)
+; Input:
+;       None
+; Output:
+;       output  :   named structure roilocatorOutput
+; Keywords:
+;       inputFlux   :   float array
+;       inputWavelength :   float array
+; Author and history:
+;       Daniel Hatcher, 2018
+;-
 
-;Set compile options 
 COMPILE_OPT IDL2
 
 ;Check input existence
@@ -103,7 +118,7 @@ FOR i = 0, 2 DO BEGIN
 ENDFOR
 
 ;Define patch areas
-numPatches = 7
+numPatches = 5
 patchesIndArray = LINDGEN(numPatches)
 patchCenters = sortedPeakPositions[patchesIndArray]
 patchPositions = LIST()

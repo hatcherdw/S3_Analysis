@@ -1,6 +1,22 @@
 FUNCTION restoreframe, inputFrame
 
-;Set compile options 
+;+
+; Name:
+;       restoreframe
+; Purpose:
+;       Restore frame data from IDL save variables
+; Calling sequence:
+;       frame = restoreframe(frame)
+; Input:
+;       inputFrame  :   string frame number
+; Output:
+;       output  :   named structure restoreframeOutput
+; Keywords:
+;       None
+; Author and history:
+;       Daniel Hatcher, 2018
+;-
+
 COMPILE_OPT IDL2		                                
 
 ;Check input type
