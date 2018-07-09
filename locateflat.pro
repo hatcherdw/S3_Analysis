@@ -65,7 +65,7 @@ ENDFOR
 ;Select flat with nearest date
 sortedDiffJulDates = SORT(diffJulDates)
 sortedFramesArray = framesArray[sortedDiffJulDates]
-flat = sortedFramesArrray[0]
+flat = sortedFramesArray[0]
 RETURN, flat
 
 END
