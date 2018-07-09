@@ -1,46 +1,61 @@
-FUNCTION flatfit, flat, flatfit_output, ORDER = order
+FUNCTION flatfit, TEST = inputTest, FLAT = inputFlat, ORDER = inputOrder
 
 ;+
 ;Name:
-;		flatfit
+;       flatfit       
 ;Purpose:
-;		Function for removing wavelength-dependent variation in flat field 
+;       Calculate flat function using test and averaged flats
 ;Calling sequence:
-;		normalflat = flatfit(flat)
+;       f = flat(TEST=test,FLAT=flat)
 ;Input:
-;		flat
+;       None
 ;Output:
-;		flatfit_output  ;   structure with fits coeffs and normalized flat
+;       flatfitOutput   :   structure
 ;Keywords:
-;		ORDER   ;   echelle order 
+;       TEST    :   array
+;       FLAT    :   array
+;       ORDER   :   integer (optional)
 ;Author:
 ;		Daniel Hatcher, 2018
 ;-
 
-COMPILE_OPT IDL2			                                ;Set compile options
+COMPILE_OPT IDL2
 
-IF NOT KEYWORD_SET(order) THEN BEGIN                        ;If none provided, use order 11
-    order = 11
-    PRINT, 'Using default order: ' + STRING(order)
-ENDIF
+IF NOT KEYWORD_SET(inputOrder) THEN BEGIN
+    order = 10
+    PRINT, 'Using default order 11 (index 1).'
+ENDIF ELSE BEGIN
+    order = inputOrder
+ENDELSE 
 
-pixels = LINDGEN(512) + 1
-roi = flat[*,order-1]                                       ;Region of interest in flat frame
+subsetTest = inputTest[*,order]
+subsetFlat = inputFlat[*,order]
+medianFLat = MEDIAN(subsetFlat)
+medianTest = MEDIAN(subsetTest)
 
-fit_order = 2
-coeffs = POLY_FIT(pixels, roi, fit_order, /DOUBLE)          ;quadratic fit 
+;Normalize flat with median = 1
+normalizedFlat = subsetFlat / medianFlat
 
-values = FLTARR(512)
-FOR i = 0, fit_order DO BEGIN
-     values = values + coeffs[i]*pixels^i
-ENDFOR
+;Divide test by normalized flat
+testDivNormFlat = subsetTest / normalizedFlat
 
-normalflat = roi / values                                   ;"normalize" flat
+;Normalize divided test flat with median = 1
+normDividedTest = testDivNormFlat / medianTest
 
-flatfit_output = {out, $
-                  fit   :   coeffs, $
-                  nflat :   normalflat}
+pixels = LINDGEN(512)
 
-RETURN, flatfit_output
+;Find remaining variation
+slope = REGRESS(pixels, normDividedTest, CONST=const)
+fittedValues = const + pixels*slope[0]
 
+;Flatten
+flattened = normDividedTest / fittedValues
+
+output = {flatfitOutput, $
+    fits    :   fittedValues, $
+    div     :   flattened, $
+    normFlat    :   normalizedFlat, $
+    slope   :   slope}
+
+RETURN, output
 END 
