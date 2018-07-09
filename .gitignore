@@ -6,3 +6,7 @@
 
 #Ignore prototyping script
 prototyping.pro
+
+#Ignore csv
+*.csv
+
