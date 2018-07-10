@@ -42,20 +42,30 @@ testDivNormFlat = subsetTest / normalizedFlat
 ;Normalize divided test flat with median = 1
 normDividedTest = testDivNormFlat / medianTest
 
-pixels = LINDGEN(512)
-
-;Find remaining variation
-slope = REGRESS(pixels, normDividedTest, CONST=const)
-fittedValues = const + pixels*slope[0]
-
-;Flatten
-flattened = normDividedTest / fittedValues
+;Fit linear or linear and quad 
+allPixels = LINDGEN(512)
+firstOrder = REGRESS(allPixels,normDividedTest,CONST=const)
+IF firstOrder[0] GE 0.0 THEN BEGIN
+    fittedValues = const + allPixels*firstOrder[0]
+    breakPixel = 0
+ENDIF ELSE BEGIN
+    breakPixel = 410
+    linearPixels = allPixels[0:breakPixel-1]
+    linearFlux = normDividedTest[0:breakPixel-1]
+    quadPixels = allPixels[breakPixel:*]
+    quadFlux = normDividedTest[breakPixel:*]
+    slope = REGRESS(linearPixels,linearFlux,CONST=const)
+    linearFit = const + linearPixels*slope[0]
+    quadCoeff = POLY_FIT(quadPixels,quadFlux,2,YFIT=quadFit)
+    fittedValues = [linearFit, quadFit]
+ENDELSE
 
 output = {flatfitOutput, $
     fits    :   fittedValues, $
-    div     :   flattened, $
     normFlat    :   normalizedFlat, $
-    slope   :   slope}
+    normTest    :   normDividedTest, $
+    breakpixel  :   breakPixel}
 
 RETURN, output
+
 END 
