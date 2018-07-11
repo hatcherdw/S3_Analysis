@@ -74,7 +74,7 @@ IF STRCMP(SIZE(inputWavelength,/TNAME),'DOUBLE') EQ 0 THEN BEGIN
 ENDIF
 
 ;Smooth flux
-smoothingWidth = 5
+smoothingWidth = 10
 smoothedFlux = SMOOTH(inputFlux,smoothingWidth)
 
 ;Find extrema
@@ -118,7 +118,7 @@ FOR i = 0, 2 DO BEGIN
 ENDFOR
 
 ;Define patch areas
-numPatches = 5
+numPatches = 7
 patchesIndArray = LINDGEN(numPatches)
 patchCenters = sortedPeakPositions[patchesIndArray]
 patchPositions = LIST()
@@ -153,7 +153,8 @@ patchedFlux = inputFlux[patchedPixelsArray]
 ;Return patched arrays in structure
 output = {roilocatorOutput, $
     flux    :   patchedFlux, $
-    wavelength  :   patchedWavelengths}
+    wavelength  :   patchedWavelengths, $
+    smoothflux  :   smoothedFlux}
 
 RETURN, output
 END
