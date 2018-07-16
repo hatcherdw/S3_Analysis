@@ -24,14 +24,14 @@ IF STRCMP(SIZE(inputFrame,/TNAME),'STRING') EQ 0 THEN BEGIN
     MESSAGE, 'Frame number is not of type STRING!'
 ENDIF 
 
-;Change to data directory
-IF sysvarexists('!FRAMEDIR') THEN CD, !FRAMEDIR 
-
 ;Trim string
 trimmedFrame = inputFrame.TRIM()
 
 ;List all files with matching frame number and save list 
-SPAWN, 'ls *' + trimmedFrame + '*', savedFile
+IF sysvarexists('!FRAMEDIR') THEN BEGIN
+    SPAWN, 'ls ' + !FRAMEDIR  + '*' + trimmedFrame + '*', savedFile
+ENDIF 
+
 
 ;If more than one file found, stop
 foundFiles = SIZE(savedFile, /N_ELEMENTS)
