@@ -153,8 +153,10 @@ patchedFlux = inputFlux[patchedPixelsArray]
 ;Return patched arrays in structure
 output = {roilocatorOutput, $
     flux    :   patchedFlux, $
-    wavelength  :   patchedWavelengths, $
-    smoothflux  :   smoothedFlux}
+    wave    :   patchedWavelengths, $
+    smoothflux  :   smoothedFlux, $
+    num     :   numPatches, $
+    width   :   smoothingWidth}
 
 RETURN, output
 END
