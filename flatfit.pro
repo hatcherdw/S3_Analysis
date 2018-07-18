@@ -31,40 +31,28 @@ ENDELSE
 subsetTest = inputTest[*,order]
 subsetFlat = inputFlat[*,order]
 medianFLat = MEDIAN(subsetFlat)
-medianTest = MEDIAN(subsetTest)
 
-;Normalize flat with median = 1
+;Normalize flat with median
 normalizedFlat = subsetFlat / medianFlat
 
 ;Divide test by normalized flat
 testDivNormFlat = subsetTest / normalizedFlat
 
-;Normalize divided test flat with median = 1
+;Normalize divided test flat with median 
+medianTest = MEDIAN(subsetTest)
 normDividedTest = testDivNormFlat / medianTest
 
-;Fit linear or linear and quad 
-allPixels = LINDGEN(512)
-firstOrder = REGRESS(allPixels,normDividedTest,CONST=const)
-IF firstOrder[0] GE 0.0 THEN BEGIN
-    fittedValues = const + allPixels*firstOrder[0]
-    breakPixel = 0
-ENDIF ELSE BEGIN
-    breakPixel = 410
-    linearPixels = allPixels[0:breakPixel-1]
-    linearFlux = normDividedTest[0:breakPixel-1]
-    quadPixels = allPixels[breakPixel:*]
-    quadFlux = normDividedTest[breakPixel:*]
-    slope = REGRESS(linearPixels,linearFlux,CONST=const)
-    linearFit = const + linearPixels*slope[0]
-    quadCoeff = POLY_FIT(quadPixels,quadFlux,2,YFIT=quadFit)
-    fittedValues = [linearFit, quadFit]
-ENDELSE
+;Fit polynomial to ratios
+pixels = LINDGEN(512)
+coeffs = POLY_FIT(pixels,normDividedTest,5,YFIT=fittedValues)
+residuals = normDividedTest - fittedValues
 
 output = {flatfitOutput, $
-    fits    :   fittedValues, $
+    fits        :   fittedValues, $
     normFlat    :   normalizedFlat, $
-    normTest    :   normDividedTest, $
-    breakpixel  :   breakPixel}
+    divided     :   normDividedTest, $
+    coeffs      :   coeffs, $
+    residuals   :   residuals}      
 
 RETURN, output
 
