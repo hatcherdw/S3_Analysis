@@ -17,4 +17,6 @@ testFlatListDir = '/home/central/hatch1dw/IDL/S3_Analysis/'
 testFlatListFile = 'Test_Flat_List.txt'
 DEFSYSV, '!TESTFLATLIST', testFlatListDir + testFlatListFile, 1
 
+graftedDir = '/storage/hatch1dw/Grafted/'
+DEFSYSV, '!GRAFTEDDIR', graftedDir, 1
 END
