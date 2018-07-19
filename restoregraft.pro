@@ -1,11 +1,11 @@
-FUNCTION restoregrafted, FRAME = inputFrame, MAP = inputMap
+FUNCTION restoregraft, FRAME = inputFrame, MAP = inputMap
 
 ;Name:
-;       restoregrafted
+;       restoregraft
 ; Purpose:
 ;       restore grafted test flats and Flats
 ; Calling sequence:
-;       grafted = restoregrafted(FRAME=frame)
+;       grafted = restoregraft(FRAME=frame)
 ; Input:
 ;       None
 ; Output:
