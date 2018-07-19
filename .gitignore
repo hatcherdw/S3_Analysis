@@ -10,3 +10,7 @@ prototyping.pro
 #Ignore csv
 *.csv
 
+#Ignore eps
+*.eps
+
+
