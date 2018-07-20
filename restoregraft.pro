@@ -1,4 +1,4 @@
-FUNCTION restoregraft, FRAME = inputFrame, MAP = inputMap
+FUNCTION restoregraft, FRAME = inputFrame
 
 ;Name:
 ;       restoregraft
@@ -37,28 +37,10 @@ RESTORE, savedFile
 bit16 = grafted_data
 bit8 = BYTSCL(grafted_data)
 
-;If provided, overlay order map onto graft
-IF KEYWORD_SET(inputMap) THEN BEGIN
-    rasterizedMap = ROUND(inputMap)
-    mapOverlay = bit8
-    FOR i = 0, 511 DO BEGIN
-        FOR j = 0, 15 DO BEGIN
-            pixelOn = rasterizedMap[i,j]
-            mapOverlay[i,pixelOn] = 255
-        ENDFOR  
-    ENDFOR
-    ;Create anonymous otuput structure
-    output = {$
-        bit16   :   bit16, $
-        bit8    :   bit8, $
-        overlay :   mapOverlay}
-ENDIF ELSE BEGIN
-    ;Create anonymous otuput structure
-    output = {$
-        bit16   :   bit16, $
-        bit8    :   bit8}
-ENDELSE
-
+;Create anonymous otuput structure
+output = {restoregraftOutput, $
+    bit16   :   bit16, $
+    bit8    :   bit8}
 RETURN, output
 
 END
