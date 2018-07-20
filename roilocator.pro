@@ -1,23 +1,3 @@
-FUNCTION roilocator_isextremum, inputLeft, inputCenter, inputRight
-;Utility module to test for local maximum or local minimum
-
-COMPILE_OPT IDL2
-
-IF ((inputCenter GE inputLeft) AND (inputCenter GE inputRight)) THEN BEGIN
-    returnValue = 1B
-ENDIF ELSE IF (inputCenter LE inputLeft) AND (inputCenter LE inputRight) THEN $
-    BEGIN
-    returnValue = 1B
-ENDIF ELSE BEGIN
-    returnValue = 0B
-ENDELSE
-
-RETURN, returnValue
-END
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-FUNCTION roilocator, FLUX=inputFlux, WAVELENGTH=inputWavelength 
-
 ;+
 ; Name:
 ;       roilocator
@@ -35,6 +15,34 @@ FUNCTION roilocator, FLUX=inputFlux, WAVELENGTH=inputWavelength
 ; Author and history:
 ;       Daniel Hatcher, 2018
 ;-
+
+;------------------------------------------------------------------------------
+;
+; Purpose: 
+;       Test for local maximum or local minimum
+;
+FUNCTION roilocator_isextremum, inputLeft, inputCenter, inputRight
+
+COMPILE_OPT IDL2
+
+IF ((inputCenter GE inputLeft) AND (inputCenter GE inputRight)) THEN BEGIN
+    returnValue = 1B
+ENDIF ELSE IF (inputCenter LE inputLeft) AND (inputCenter LE inputRight) THEN $
+    BEGIN
+    returnValue = 1B
+ENDIF ELSE BEGIN
+    returnValue = 0B
+ENDELSE
+
+RETURN, returnValue
+END
+
+;------------------------------------------------------------------------------
+;
+; Purpose:
+;       Main routine
+;
+FUNCTION roilocator, FLUX=inputFlux, WAVELENGTH=inputWavelength 
 
 COMPILE_OPT IDL2
 
