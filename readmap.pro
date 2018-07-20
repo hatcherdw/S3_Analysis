@@ -30,28 +30,40 @@ ENDIF ELSE BEGIN
     MESSAGE, 'Calling sequence is map = readmap(FRAME=<frame>)'
 ENDELSE
 
-;Specify path
-extension = '.ordmap'
+;Specify paths
+mapExtension = '.ordmap'
+fitsExtension = '.ordproffits'
 IF sysvarexists('!FLATDIR') THEN BEGIN
-    path = !FLATDIR + inputFrame + extension
+    mapPath = !FLATDIR + inputFrame + mapExtension
+    fitsPath = !FLATDIR + inputFrame + fitsExtension
 ENDIF
 
-;Initialize map matrix
-mapData = FLTARR(512,16)
+;Initialize map matrix and fits matrix
+numOrds = 16
+orderWidth = 9
+mapData = FLTARR(512,numOrds)
+fitsData = FLTARR(orderWidth, 6, numOrds)
 
 ;Read and store map
-OPENR, logicalUnitNumber, path, /GET_LUN
+OPENR, logicalUnitNumber, mapPath, /GET_LUN
 READU, logicalUnitNumber, mapData
 CLOSE, logicalUnitNumber
 FREE_LUN, logicalUnitNumber
 
 ;Rasterize map
-rmap = ROUND(mapData)
+rasterMap = ROUND(mapData)
+
+;Read and store fits
+OPENR, logicalUnitNumber, fitsPath, /GET_LUN
+READU, logicalUnitNumber, fitsData
+CLOSE, logicalUnitNumber
+FREE_LUN, logicalUnitNumber
 
 ;Output
 output = {readmapOutput, $
     flt :   mapData, $
-    ras :   rmap, $
+    ras :   rasterMap, $
+    fits:   fitsData, $
     frame   :   inputFrame}
 
 RETURN, output
