@@ -10,8 +10,8 @@
 ; Output:
 ;       output  :   named structure roilocatorOutput
 ; Keywords:
-;       inputFlux   :   float array
-;       inputWavelength :   float array
+;       FLUX    :   float array
+;       WAVELENGTH  :   float array
 ; Author and history:
 ;       Daniel Hatcher, 2018
 ;-
@@ -26,11 +26,13 @@ FUNCTION roilocator_isextremum, inputLeft, inputCenter, inputRight
 COMPILE_OPT IDL2
 
 IF ((inputCenter GE inputLeft) AND (inputCenter GE inputRight)) THEN BEGIN
+    ;Local maximum
     returnValue = 1B
-ENDIF ELSE IF (inputCenter LE inputLeft) AND (inputCenter LE inputRight) THEN $
-    BEGIN
+ENDIF ELSE IF (inputCenter LE inputLeft) AND (inputCenter LE inputRight) THEN BEGIN
+    ;Local minimum
     returnValue = 1B
 ENDIF ELSE BEGIN
+    ;Not an extremum
     returnValue = 0B
 ENDELSE
 
@@ -42,7 +44,8 @@ END
 ; Purpose:
 ;       Main routine
 ;
-FUNCTION roilocator, FLUX=inputFlux, WAVELENGTH=inputWavelength 
+FUNCTION roilocator, FLUX=inputFlux, WAVE=inputWavelength, WIDTH=inputWidth, $
+    PATCHES=inputPatches
 
 COMPILE_OPT IDL2
 
@@ -82,13 +85,19 @@ IF STRCMP(SIZE(inputWavelength,/TNAME),'DOUBLE') EQ 0 THEN BEGIN
 ENDIF
 
 ;Smooth flux
-smoothingWidth = 10
-smoothedFlux = SMOOTH(inputFlux,smoothingWidth)
+IF NOT KEYWORD_SET(inputWidth) THEN BEGIN
+    smoothingWidth = 6 
+ENDIF ELSE BEGIN
+    smoothingWidth = inputWidth
+ENDELSE
+smoothedFlux = SMOOTH(inputFlux,smoothingWidth,EDGE_TRUNCATE=1)
 
-;Find extrema
+;Create list objects for dynamic allocation of peaks
 peakPositions = LIST()
 peakAmplitudes = LIST()
 numValues = N_ELEMENTS(inputFlux)
+
+;Find extrema
 FOR i = (smoothingWidth+1), numValues-(smoothingWidth+1) DO BEGIN
     left = smoothedFlux[i-1]
     center = smoothedFlux[i]
@@ -98,6 +107,8 @@ FOR i = (smoothingWidth+1), numValues-(smoothingWidth+1) DO BEGIN
         peakAmplitudes.ADD, center
     ENDIF    
 ENDFOR
+
+;Convert list objects to arrays
 peakPositionsArray = peakPositions.TOARRAY()
 peakAmplitudesArray = peakAmplitudes.TOARRAY()
 
@@ -118,7 +129,7 @@ FOR i = 1, numPeaks-2 DO BEGIN
     distanceMatrix[2,i-1] = sumLeftRight * ABS(sumLeftRight/diffLeftRight) 
 ENDFOR
 
-;Sort peaks by signifigance
+;Sort peaks by significance
 sortedDistanceIndices = REVERSE(SORT(distanceMatrix[2,*]))
 sortedPeakPositions = peakPositionsArray[sortedDistanceIndices + 1]
 FOR i = 0, 2 DO BEGIN
@@ -126,7 +137,11 @@ FOR i = 0, 2 DO BEGIN
 ENDFOR
 
 ;Define patch areas
-numPatches = 7
+IF NOT KEYWORD_SET(inputPatches) THEN BEGIN
+    numPatches = 7
+ENDIF ELSE BEGIN
+    numPatches = inputPatches
+ENDELSE
 patchesIndArray = LINDGEN(numPatches)
 patchCenters = sortedPeakPositions[patchesIndArray]
 patchPositions = LIST()
@@ -158,13 +173,25 @@ patchedPixelsArray = patchedPixels.TOARRAY()
 patchedWavelengths = inputWavelength[patchedPixelsArray]
 patchedFlux = inputFlux[patchedPixelsArray]
 
+;Compute effective number of patches
+effectivePatches = 0
+FOR i = 0, N_ELEMENTS(patchedPixelsArray)-2 DO BEGIN
+    IF patchedPixelsArray[i+1] - patchedPixelsArray[i] NE 1 THEN BEGIN
+        effectivePatches = effectivePatches + 1
+    ENDIF
+ENDFOR
+
 ;Return patched arrays in structure
-output = {roilocatorOutput, $
+output = {$
     flux    :   patchedFlux, $
+    pixels  :   patchedPixelsArray, $
     wave    :   patchedWavelengths, $
+    missing :   inputWavelength[uniquePatchPositions], $
+    missingpixels   :   uniquePatchPositions, $
     smoothflux  :   smoothedFlux, $
-    num     :   numPatches, $
-    width   :   smoothingWidth}
+    numpatches  :   numPatches, $
+    effectivepatches    :   effectivePatches, $
+    smoothwidth   :   smoothingWidth}
 
 RETURN, output
 END
