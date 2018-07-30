@@ -1,4 +1,4 @@
-FUNCTION restoreframe, inputFrame
+FUNCTION restoreframe, FRAME = inputFrame
 
 ;+
 ; Name:
@@ -20,9 +20,14 @@ FUNCTION restoreframe, inputFrame
 COMPILE_OPT IDL2		                                
 
 ;Check input type
-IF STRCMP(SIZE(inputFrame,/TNAME),'STRING') EQ 0 THEN BEGIN
-    MESSAGE, 'Frame number is not of type STRING!'
-ENDIF 
+IF KEYWORD_SET(inputFrame) THEN BEGIN
+    isString = STRCMP(SIZE(inputFrame,/TNAME),'STRING')
+    IF NOT isString THEN BEGIN
+        MESSAGE, 'Frame number is not of type STRING!'
+    ENDIF
+ENDIF ELSE BEGIN
+    MESSAGE, 'Provide frame number!'
+ENDELSE
 
 ;Trim string
 trimmedFrame = inputFrame.TRIM()
@@ -31,7 +36,6 @@ trimmedFrame = inputFrame.TRIM()
 IF sysvarexists('!FRAMEDIR') THEN BEGIN
     SPAWN, 'ls ' + !FRAMEDIR  + '*' + trimmedFrame + '*', savedFile
 ENDIF 
-
 
 ;If more than one file found, stop
 foundFiles = SIZE(savedFile, /N_ELEMENTS)
@@ -42,15 +46,21 @@ ENDIF
 ;Restore variables
 RESTORE, savedFile
 
+;Normalize flux using median
+normFlux = FLTARR(512,16)
+FOR i = 0, 15 DO BEGIN
+    medianValue = MEDIAN(frame1[*,i])
+    normFlux[*,i] = frame1[*,i] / medianValue 
+ENDFOR
+
 ;Create output structure
-output = { $
-         restoreframeOutput, $
-         flux  :   frame1, $
-         wave  :   wavelengths, $
-         name  :   object_name, $
-         date  :   object_date, $
-         frame :   inputFrame $  
-         }
+output = {restoreframeOutput, $
+    flux    :   frame1, $
+    wave    :   wavelengths, $
+    name    :   object_name, $
+    date    :   object_date, $
+    frame   :   inputFrame, $
+    normflux    :   normFlux}
 
 RETURN, output
 
