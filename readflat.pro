@@ -52,9 +52,31 @@ READU, logicalUnitNumber, flatData
 CLOSE, logicalUnitNumber
 FREE_LUN, logicalUnitNumber
 
+;Normalize using median (useful for Flats and test flats)
+normFlux = FLTARR(512,16)
+FOR i = 0, 15 DO BEGIN
+    medianValue = MEDIAN(flatData[*,i])
+    normFlux[*,i] = flatData[*,i] / medianValue    
+ENDFOR
+
+;Smooth flux
+smoothWidth = 10
+smoothFlux = SMOOTH(flatData,smoothWidth,EDGE_TRUNCATE=1)
+
+;Normalize smoothed flux
+normSmoothFlux = FLTARR(512,16)
+FOR i = 0, 15 DO BEGIN
+    medianSmoothValue = MEDIAN(smoothFlux[*,i])
+    normSmoothFlux[*,i] = smoothFlux[*,i] / medianSmoothValue    
+ENDFOR
+
 ;Output
 output = {readflatOutput, $
     flux    :   flatData, $
+    normflux    :   normFlux, $
+    smoothflux  :   smoothFlux, $
+    normsmooth  :   normSmoothFlux, $
+    smoothwidth :   smoothWidth, $
     frame   :   inputFrame}
 
 RETURN, output
