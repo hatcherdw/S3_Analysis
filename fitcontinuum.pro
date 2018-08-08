@@ -17,7 +17,7 @@
 
 ;-----------------------------------------------------------------------------
 ;
-; Purpose: Utility function. Smoothes, finds peaks, sorts peaks, patches
+; Purpose: Utility function. Smoothes, finds and sorts peaks, applies patches
 ;
 FUNCTION fitcontinuum_utility, zoneArray
 
@@ -69,7 +69,28 @@ FOR i = 0, numPeaks-1 DO BEGIN
 ENDFOR
 sortedPeaks = peaksArray[REVERSE(SORT(sigArray))]
 
-RETURN, 0
+;Calculate patch positions
+numPatches = 5
+patchWidth = 5
+patchPixels = LIST() 
+FOR i = 0, 4 DO BEGIN
+    currentPatch = LINDGEN(2*patchWidth+1,START=sortedPeaks[i]-patchWidth)
+    patchPixels.ADD, currentPatch
+ENDFOR
+patchPixelsArray = patchPixels.TOARRAY()
+
+;Ignore duplicates
+uniquePatchArray = patchPixelsArray[UNIQ(patchPixelsArray)]
+
+;Apply patches
+patched = LIST()
+FOR i = 0, N_ELEMENTS(zoneArray)-1 DO BEGIN
+    count = WHERE(i EQ patchPixelsArray, isPatch)
+    IF NOT isPatch THEN patched.ADD, i
+ENDFOR
+patchedArray = patched.TOARRAY()
+
+RETURN, patchedArray
 
 END
 
@@ -83,30 +104,68 @@ COMPILE_OPT IDL2
 
 IF NOT checkarrays(FLUX=inputFlux,WAVE=inputWave) THEN STOP
 
-;Find pixel with wavelength closest to Ha (656.28 nm)
+;Find pixel with wavelength closest to Ha (lab wavelength 656.28 nm)
 ;Index stored in pixelHa
 Ha = 656.28
 distMin = MIN(ABS(inputWave-Ha),pixelHa)
 
-;Subset flux and wavelength arrays by excluding 'red' zone
-redWidth = 50
-leftZone = LINDGEN(pixelHa - redWidth)
-rightZone = LINDGEN(512-pixelHa-redWidth,START=pixelHa+redWidth)
-leftWave = inputWave[leftZone]
-rightWave = inputWave[rightZone]
-leftFlux = inputFlux[leftZone]
-rightFlux = inputFlux[rightZone]
+;Loop through red zone widths
+redStart = 10
+redStop = 100
+stepSize = 1 
+widths = LIST()
+slopes = LIST()
+FOR b = redStart,redStop,stepSize DO BEGIN
+    widths.ADD, b
+    ;Subset flux and wavelength arrays by excluding 'red' zone
+    redWidth = b
+    leftZone = LINDGEN(pixelHa - redWidth)
+    rightZone = LINDGEN(512-pixelHa-redWidth,START=pixelHa+redWidth)
+    leftWave = inputWave[leftZone]
+    rightWave = inputWave[rightZone]
+    leftFlux = inputFlux[leftZone]
+    rightFlux = inputFlux[rightZone]
 
-;Pass zoned flux arrays to utility function
-leftPatch = fitcontinuum_utility(leftFlux)
-rightPatch = fitcontinuum_utility(rightFlux)
+    ;Pass zoned flux arrays to utility function
+    leftPatched = fitcontinuum_utility(leftFlux)
+    rightPatched = fitcontinuum_utility(rightFlux)
 
-;Fit polynomial to remaining 'continuum' points
+    ;Subset using patches
+    patchedWave = [leftWave[leftPatched],rightWave[rightPatched]]
+    patchedFlux = [leftFlux[leftPatched],rightFlux[rightPatched]]
 
-;Divide out continuum
+    ;Fit polynomial to remaining 'continuum' points
+    fitDegree = 4
+    polyCoeffs = POLY_FIT(patchedWave,patchedFlux,fitDegree,YFIT=fit)
 
-;Examine normalization
+    ;Calculate continuum
+    continuum = 0.0
+    greenContinuum = 0.0
+    FOR i = 0, fitDegree DO BEGIN
+        continuum = continuum + inputWave^i*polyCoeffs[i]
+        greenContinuum = greenContinuum + [leftWave,rightWave]^i*polyCoeffs[i] 
+    ENDFOR
 
-RETURN, 0
+    ;Divide out continuum
+    greenNormalized = [leftFlux,rightFlux] / greenContinuum 
+
+    ;Examine normalization
+    slope = REGRESS([leftFLux,rightFlux],greenNormalized)
+    slopes.ADD, ABS(slope[0])
+    IF redWidth GT redStart THEN BEGIN
+        IF ABS(slope[0]) LT minimum THEN BEGIN 
+            normalized = inputFlux / continuum
+            bestSize = b
+        ENDIF
+    ENDIF ELSE BEGIN
+        minimum = ABS(slope[0])
+    ENDELSE
+ENDFOR
+widthsArray = widths.TOARRAY()
+slopesArray = slopes.TOARRAY()
+PLOT, widthsArray, slopesArray, PSYM=4
+PRINT, widthsArray[REVERSE(SORT(slopesArray))]
+PRINT, bestSize
+RETURN, normalized
 
 END
