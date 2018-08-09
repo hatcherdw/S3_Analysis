@@ -19,6 +19,7 @@ FUNCTION sysvarexists, inputSysVar, output
 
 COMPILE_OPT IDL2
 
+;Check existence, not redefine 
 DEFSYSV, inputSysVar, EXISTS=i
 IF i EQ 1 THEN BEGIN
     output = 1B
