@@ -27,7 +27,7 @@ IF KEYWORD_SET(inputFrame) THEN BEGIN
         MESSAGE, 'Input is not of type STRING!'
     ENDIF
 ENDIF ELSE BEGIN
-    MESSAGE, 'Calling sequence is flat = readbinaryflat(FRAME=<frame>)'
+    MESSAGE, 'Please provide input frame number!'
 ENDELSE
 
 ;Specify path
@@ -37,6 +37,7 @@ IF sysvarexists('!FLATDIR') THEN BEGIN
 ENDIF
 
 ;Check if old or new CCD 
+;Frame 22684 first with new CCD
 IF LONG(inputFrame) GE 22684 THEN BEGIN
     ;NEW CCD
     flatData = FLTARR(512,16)
@@ -52,20 +53,17 @@ READU, logicalUnitNumber, flatData
 CLOSE, logicalUnitNumber
 FREE_LUN, logicalUnitNumber
 
-;Normalize using median (useful for Flats and test flats)
-normFlux = FLTARR(512,16)
-FOR i = 0, 15 DO BEGIN
-    medianValue = MEDIAN(flatData[*,i])
-    normFlux[*,i] = flatData[*,i] / medianValue    
-ENDFOR
-
 ;Smooth flux
 smoothWidth = 10
 smoothFlux = SMOOTH(flatData,smoothWidth,EDGE_TRUNCATE=1)
 
-;Normalize smoothed flux
+;Normalize using median (useful for Flats and test flats)
+;Each order normalized separately 
+normFlux = FLTARR(512,16)
 normSmoothFlux = FLTARR(512,16)
 FOR i = 0, 15 DO BEGIN
+    medianValue = MEDIAN(flatData[*,i])
+    normFlux[*,i] = flatData[*,i] / medianValue    
     medianSmoothValue = MEDIAN(smoothFlux[*,i])
     normSmoothFlux[*,i] = smoothFlux[*,i] / medianSmoothValue    
 ENDFOR
