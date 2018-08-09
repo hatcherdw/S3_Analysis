@@ -8,11 +8,11 @@ FUNCTION restoreframe, FRAME = inputFrame
 ; Calling sequence:
 ;       frame = restoreframe(frame)
 ; Input:
-;       inputFrame  :   string frame number
+;       None
 ; Output:
 ;       output  :   named structure restoreframeOutput
 ; Keywords:
-;       None
+;       FRAME   :   frame number
 ; Author and history:
 ;       Daniel Hatcher, 2018
 ;-
@@ -26,7 +26,7 @@ IF KEYWORD_SET(inputFrame) THEN BEGIN
         MESSAGE, 'Frame number is not of type STRING!'
     ENDIF
 ENDIF ELSE BEGIN
-    MESSAGE, 'Provide frame number!'
+    MESSAGE, 'Provide frame number string!'
 ENDELSE
 
 ;Trim string
@@ -46,7 +46,7 @@ ENDIF
 ;Restore variables
 RESTORE, savedFile
 
-;Normalize flux using median
+;Normalize flux using median (useful for test flats)
 normFlux = FLTARR(512,16)
 FOR i = 0, 15 DO BEGIN
     medianValue = MEDIAN(frame1[*,i])
