@@ -19,8 +19,9 @@ FUNCTION locateflat, DATE=inputDate
 
 COMPILE_OPT IDL2
 
+;Check input existence and type
 IF NOT KEYWORD_SET(inputDate) THEN BEGIN
-    MESSAGE, 'Calling sequence is flat = locateflat(DATE=date)'
+    MESSAGE, 'Please provide input date!'
 ENDIF ELSE IF STRCMP(SIZE(inputDate,/TNAME),'STRING') EQ 0 THEN BEGIN
     MESSAGE, 'Input is not of type STRING!'
 ENDIF
@@ -36,6 +37,7 @@ frames = LIST()
 FOR i = 0, numLines-1 DO BEGIN
     READF, logicalUnitNumber, line
     firstCharacter = STRMID(line,0,1)
+    ;Ignore comments and first line
     IF STRCMP(firstCharacter,'#') EQ 0 AND STRLEN(line) GT 0 THEN BEGIN
         dates.ADD, STRMID(line,0,10)
         frames.ADD, STRMID(line,13,5)       
@@ -46,7 +48,7 @@ FREE_LUN, logicalUnitNumber
 datesArray = dates.TOARRAY()
 framesArray = frames.TOARRAY() 
 
-;Convert flat dates
+;Convert flat dates to JD
 numDates = N_ELEMENTS(datesArray)
 julianDatesArray = STRARR(numDates)
 FOR i = 0, numDates-1 DO BEGIN
@@ -66,6 +68,7 @@ ENDFOR
 sortedDiffJulDates = SORT(diffJulDates)
 sortedFramesArray = framesArray[sortedDiffJulDates]
 flat = sortedFramesArray[0]
+
 RETURN, flat
 
 END
