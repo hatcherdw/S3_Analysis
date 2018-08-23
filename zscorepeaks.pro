@@ -105,7 +105,8 @@ ENDELSE
 output = {$
     signals :   signals, $
     upper  :   upper, $
-    lower  :   lower}    
+    lower  :   lower, $
+    avg :   avgFilter}    
 
 RETURN, output 
 
