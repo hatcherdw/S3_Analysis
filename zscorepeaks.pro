@@ -66,14 +66,15 @@ IF inputLag LT num THEN BEGIN
         stdFilter[i] = STDDEV(filtered[i-inputLag:i])
     ENDFOR
 
+    ;Upper and lower thresholds
     upper = avgFilter+InputT*stdFilter
     lower = avgFilter-InputT*stdFilter
     
-    ;Use NaNs for cleaner plotting
+    ;Use NaNs for cleaner plotting of lagged values
     upper[0:inputLag] = !VALUES.F_NAN
     lower[0:inputLag] = !VALUES.F_NAN
 
-    ;Plotting indicator
+    ;Plotting flag
     plotting = 0 
     IF plotting THEN BEGIN
         !P.MULTI = [0,2,1,0,0]
@@ -100,7 +101,6 @@ ENDIF ELSE BEGIN
     upper[*] = avgFilter+InputT*stdFilter
     lower[*] = avgFilter-InputT*stdFilter
 ENDELSE
-
 
 output = {$
     signals :   signals, $
