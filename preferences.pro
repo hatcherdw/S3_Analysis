@@ -1,8 +1,9 @@
-PRO preferences
 ;Define new system variables that have system-specific values 
 ;(e.g. directory names) 
 ;Thrid argument of DEFSYSV is read-only flag. Set non-zero to prevent changes 
 ;to system variable
+
+PRO preferences
 
 flatListDir = '/home/central/hatch1dw/Programs/S3_Analysis/'
 flatListFile = 'flat_list_new_CCD.txt'

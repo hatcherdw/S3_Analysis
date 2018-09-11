@@ -1,5 +1,3 @@
-FUNCTION locateflat, DATE=inputDate
-
 ;+
 ; Name:
 ;       locateflat
@@ -7,7 +5,7 @@ FUNCTION locateflat, DATE=inputDate
 ;       Given the date of a frame, find the flat that is closest in time
 ; Calling sequence:
 ;       flat = locateflat(DATE=date)
-; Input:
+; Positional input:
 ;       None
 ; Output:
 ;       flat    :   string frame number   
@@ -16,6 +14,8 @@ FUNCTION locateflat, DATE=inputDate
 ; Author and history:
 ;       Daniel Hatcher, 2018
 ;-
+
+FUNCTION locateflat, DATE=inputDate
 
 COMPILE_OPT IDL2
 

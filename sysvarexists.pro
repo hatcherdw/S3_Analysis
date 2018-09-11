@@ -1,5 +1,3 @@
-FUNCTION sysvarexists, inputSysVar, output
-
 ;+
 ; Name:
 ;       sysvarexists
@@ -7,7 +5,7 @@ FUNCTION sysvarexists, inputSysVar, output
 ;       Checks if input string is a defined system variable
 ; Calling sequence:
 ;       output = sysvarexists(inputSysVar)
-; Input:
+; Positional input:
 ;       inputSysVar :   string starting with !
 ; Output:
 ;       output  :   byte 
@@ -17,9 +15,11 @@ FUNCTION sysvarexists, inputSysVar, output
 ;       Daniel Hatcher, 2018
 ;-
 
+FUNCTION sysvarexists, inputSysVar
+
 COMPILE_OPT IDL2
 
-;Check existence, not redefine 
+;Checks existence, does not redefine 
 DEFSYSV, inputSysVar, EXISTS=i
 IF i EQ 1 THEN BEGIN
     output = 1B
@@ -30,4 +30,5 @@ ENDIF ELSE IF i EQ 0 THEN BEGIN
 ENDIF
 
 RETURN, output
+
 END

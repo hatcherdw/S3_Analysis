@@ -1,5 +1,3 @@
-FUNCTION readflat, FRAME = inputFrame 
-
 ;+
 ; Name:
 ;       readflat
@@ -7,7 +5,7 @@ FUNCTION readflat, FRAME = inputFrame
 ;       Read flat files saved in binary format
 ; Calling sequence:
 ;       flat = readflat(FRAME=frame)
-; Input:
+; Positional input:
 ;       None
 ; Output:
 ;       output  :   structure 
@@ -16,6 +14,8 @@ FUNCTION readflat, FRAME = inputFrame
 ; Author and history:
 ;       Daniel Hatcher, 2018
 ;-
+
+FUNCTION readflat, FRAME = inputFrame 
 
 COMPILE_OPT IDL2			                    
 
