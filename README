@@ -2,5 +2,5 @@ This repository contains programs used for development of new SSS data analysis
 modules.  
 
 Use the preferences.pro procedure to set system-specific variables like data
-directory names and file extensions. Add a call to the preferences procedure in your 
-IDL startup file to initialize.  
+directory names and file extensions. Add a call to the preferences procedure in 
+your IDL startup procedure to initialize.  
