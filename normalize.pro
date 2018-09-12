@@ -60,7 +60,8 @@ END
 ;
 ; Purpose: Main function
 ;
-FUNCTION normalize, wave, flatdiv, pixelHa, frame, WIDTH=inputWidth
+FUNCTION normalize, wave, flatdiv, pixelHa, frame, WIDTH=inputWidth, $
+    IGNORE = inputIgnore
 
 COMPILE_OPT IDL2
 
@@ -80,10 +81,10 @@ IF NOT KEYWORD_SET(inputWidth) THEN BEGIN
         START=pixelHa+coreBuffer))
 
     ;Search blue (left) side of Ha
-    leftResult = zscorepeaks(flatdiv[leftSearch],LAG=10,T=1,INF=0)
+    leftResult = zscorepeaks(flatdiv[leftSearch],LAG=10,T=1.5,INF=0.1)
 
     ;Search red (right) side of Ha
-    rightResult = zscorepeaks(flatdiv[rightSearch],LAG=10,T=1,INF=0)
+    rightResult = zscorepeaks(flatdiv[rightSearch],LAG=10,T=1.5,INF=0.1)
 
     ;Find first position of last signal (blue side of Ha)
     FOR i = N_ELEMENTS(leftSearch)-1,0,-1 DO BEGIN
@@ -155,15 +156,16 @@ normalized = flatdiv/continuum
 screen = 1
 IF screen THEN BEGIN
     !P.MULTI = [0,1,2,0,0]
+
     ;Colors
     DEVICE, DECOMPOSED=0
     LOADCT, 39, /SILENT
-    color_table = [60,250,150,220,30,90,110,190,10]
-    color_text = ['blue','red','green','orange','violet','lt_blue','cyan',$ 
-        'yellow','black']
 
-    PLOT, wave,flatdiv,PSYM=3,title=frame,xtitle='Wavelength (nm)', $
+    titleText = frame+" Width: "+STRTRIM(STRING(width),2)
+    PLOT, wave,flatdiv,PSYM=3,title=titleText,xtitle='Wavelength (nm)', $
         ytitle='Flattened Flux',yrange=[MIN(continuum),MAX(continuum)]
+    OPLOT, [wave[leftShoulder],wave[rightShoulder]],[flatdiv[leftShoulder],$
+        flatdiv[rightShoulder]],PSYM=4
     OPLOT, wave[leftPixels],continuum[leftPixels]
     OPLOT, wave[rightPixels],continuum[rightPixels]
     OPLOT, wave[patchedPixels],continuum[patchedPixels],LINESTYLE=2
@@ -180,9 +182,12 @@ IF screen THEN BEGIN
     OPLOT, [wave[0],wave[-1]],[1.03,1.03]
 ENDIF
 
-output = {normalizeOutput, $
+;Output structure 
+output = {$
     continuum   :   continuum, $
-    width   :   width}
+    width   :   width, $
+    join   :   joinedPixels, $
+    patch   :   patchedPixels}
 
 RETURN, output
 
