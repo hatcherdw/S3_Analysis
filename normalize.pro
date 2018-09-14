@@ -3,16 +3,17 @@
 ; Purpose:
 ;       Automated continuum normalization
 ; Calling sequence:
-;       Result = normalize(wave,flatdiv,pixelHa)
+;       Result = normalize(wave,flux,pixelHa)
 ; Positional parameters:
 ;       wave    :   array of wavelengths
-;       flatdiv :   array of flattened fluxes
+;       flux :   array of flattened fluxes
 ;       pixelHa :   pixel nearest Ha (656.28 nm)
 ; Output:
 ;       output  :   structure with continuum, and red zone width 
 ; Keyword parameters:
 ;       WIDTH   :   Red zone width
 ;       IGNORE  :   Wavelengths to be ignored (fixed width patching)
+;       FIT     :   Fit parameters for red region
 ; Author and history:
 ;       C.A.L. Bailer-Jones et al., 1998    :  Filtering algorithm 
 ;       Daniel Hatcher, 2018    :   IDL implementation and patching automation
@@ -60,8 +61,8 @@ END
 ;
 ; Purpose: Main function
 ;
-FUNCTION normalize, wave, flatdiv, pixelHa, frame, WIDTH=inputWidth, $
-    IGNORE = inputIgnore
+FUNCTION normalize, wave, flux, pixelHa, frame, WIDTH=inputWidth, $
+    IGNORE=inputIgnore, FIT=inputFit
 
 COMPILE_OPT IDL2
 
@@ -81,10 +82,10 @@ IF NOT KEYWORD_SET(inputWidth) THEN BEGIN
         START=pixelHa+coreBuffer))
 
     ;Search blue (left) side of Ha
-    leftResult = zscorepeaks(flatdiv[leftSearch],LAG=10,T=1.5,INF=0.1)
+    leftResult = zscorepeaks(flux[leftSearch],LAG=10,T=1.5,INF=0.1)
 
     ;Search red (right) side of Ha
-    rightResult = zscorepeaks(flatdiv[rightSearch],LAG=10,T=1.5,INF=0.1)
+    rightResult = zscorepeaks(flux[rightSearch],LAG=10,T=1.5,INF=0.1)
 
     ;Find first position of last signal (blue side of Ha)
     FOR i = N_ELEMENTS(leftSearch)-1,0,-1 DO BEGIN
@@ -113,21 +114,21 @@ ENDELSE
 
 ;If width is very large, warn user
 limit = 10
-IF N_ELEMENTS(flatdiv)-width LT limit THEN BEGIN
+IF N_ELEMENTS(flux)-width LT limit THEN BEGIN
     limString = STRTRIM(STRING(limit),2)
     PRINT, "Less than "+limString+" pixels on red end of spectrum!"
 ENDIF
 
 ;Remove Ha feature
-totalPixels = N_ELEMENTS(flatdiv)
+totalPixels = N_ELEMENTS(flux)
 leftPixels = LINDGEN(pixelHa-width)
 rightPixels = LINDGEN(totalPixels-(pixelHa+width),START=pixelHa+width)
 patchedPixels = LINDGEN((width*2)+1,START=pixelHa-width)
 
 ;Median filter left and right separately
 medianWidth = 50
-medianLeft = normalizefilter(flatdiv[leftPixels],medianWidth,TYPE='median')
-medianRight = normalizefilter(flatdiv[rightPixels],medianWidth, $
+medianLeft = normalizefilter(flux[leftPixels],medianWidth,TYPE='median')
+medianRight = normalizefilter(flux[rightPixels],medianWidth, $
     TYPE='median')
 
 ;Reposition filtered arrays
@@ -138,10 +139,19 @@ separated[rightPixels] = medianRight
 ;Interpolate across red region 
 joinedPixels = [leftPixels,rightPixels]
 medianFlux = [medianLeft,medianRight]
+interpolated = FLTARR(N_ELEMENTS(patchedPixels))
 nLeft = N_ELEMENTS(leftPixels)
 endPoints = [nLeft-1,nLeft]
-slope = REGRESS(joinedPixels[endPoints],medianFlux[endPoints],CONST=const)
-interpolated = const + patchedPixels*slope[0]
+;If fit parameters not provided, use linear interpolation
+IF NOT KEYWORD_SET(inputFit) THEN BEGIN
+    slope = REGRESS(joinedPixels[endPoints],medianFlux[endPoints],CONST=const)
+    interpolated = const + patchedPixels*slope[0]
+ENDIF ELSE BEGIN
+;Use provided fit
+    FOR i = 0, N_ELEMENTS(inputFit)-1 DO BEGIN
+        interpolated += (patchedPixels^i)*inputFit[i]
+    ENDFOR
+ENDELSE
 separated[patchedPixels] = interpolated
 
 ;Boxcar filter
@@ -150,7 +160,7 @@ boxFlux = normalizeFilter(separated,boxWidth,TYPE='mean')
 
 continuum = boxFlux
 
-normalized = flatdiv/continuum
+normalized = flux/continuum
 
 ;Output to screen?
 screen = 1
@@ -162,15 +172,15 @@ IF screen THEN BEGIN
     LOADCT, 39, /SILENT
 
     titleText = frame+" Width: "+STRTRIM(STRING(width),2)
-    PLOT, wave,flatdiv,PSYM=3,title=titleText,xtitle='Wavelength (nm)', $
+    PLOT, wave,flux,PSYM=3,title=titleText,xtitle='Wavelength (nm)', $
         ytitle='Flattened Flux',yrange=[MIN(continuum),MAX(continuum)]
-    OPLOT, [wave[leftShoulder],wave[rightShoulder]],[flatdiv[leftShoulder],$
-        flatdiv[rightShoulder]],PSYM=4
+    OPLOT, [wave[leftShoulder],wave[rightShoulder]],[flux[leftShoulder],$
+        flux[rightShoulder]],PSYM=4
     OPLOT, wave[leftPixels],continuum[leftPixels]
     OPLOT, wave[rightPixels],continuum[rightPixels]
     OPLOT, wave[patchedPixels],continuum[patchedPixels],LINESTYLE=2
-    OPLOT, [wave[pixelHa-width],wave[pixelHa-width]],[MIN(flatdiv),MAX(flatdiv)]
-    OPLOT, [wave[pixelHa+width],wave[pixelHa+width]],[MIN(flatdiv),MAX(flatdiv)]
+    OPLOT, [wave[pixelHa-width],wave[pixelHa-width]],[MIN(flux),MAX(flux)]
+    OPLOT, [wave[pixelHa+width],wave[pixelHa+width]],[MIN(flux),MAX(flux)]
     PLOT, wave,normalized,xtitle='Wavelength (nm)', $
         ytitle='Normalized Flux',yrange=[0.9,1.1]
     OPLOT, wave[patchedPixels],normalized[patchedPixels],COLOR=250
@@ -186,8 +196,8 @@ ENDIF
 output = {$
     continuum   :   continuum, $
     width   :   width, $
-    join   :   joinedPixels, $
-    patch   :   patchedPixels}
+    patch   :   patchedPixels, $
+    shoulders   :   [leftShoulder,rightShoulder]}
 
 RETURN, output
 
