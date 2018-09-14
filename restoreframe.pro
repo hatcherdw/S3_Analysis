@@ -1,5 +1,3 @@
-FUNCTION restoreframe, FRAME = inputFrame
-
 ;+
 ; Name:
 ;       restoreframe
@@ -16,6 +14,8 @@ FUNCTION restoreframe, FRAME = inputFrame
 ; Author and history:
 ;       Daniel Hatcher, 2018
 ;-
+
+FUNCTION restoreframe, FRAME = inputFrame
 
 COMPILE_OPT IDL2		                                
 
