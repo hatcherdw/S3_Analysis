@@ -19,48 +19,6 @@
 ;       Daniel Hatcher, 2018    :   IDL implementation and patching automation
 ;-
 
-;-------------------------------------------------------------------------------
-;
-; Purpose: Filtering function with edge truncation
-;
-FUNCTION normalizefilter, array, width, TYPE=type
-
-COMPILE_OPT IDL2
-
-num = N_ELEMENTS(array)
-output = FLTARR(num)
-
-;First and last elements will not be filtered, so just output them
-output[0] = array[0]
-output[-1] = array[-1]
-
-FOR i = 1, num-2 DO BEGIN
-    ;Edge truncate left
-    IF i LT width/2 THEN BEGIN
-        filterWindow = LINDGEN(2*i)
-    ;Edge truncate right
-    ENDIF ELSE IF i+width/2 GT num THEN BEGIN
-        diff = num-i
-        filterWindow = LINDGEN(2*diff,START=i-diff)
-    ;No truncation
-    ENDIF ELSE BEGIN
-        filterWindow = LINDGEN(width,START=i-width/2)
-    ENDELSE
-    IF STRCMP(type,'median') EQ 1 THEN BEGIN
-        output[i] = MEDIAN(array[filterWindow])
-    ENDIF ELSE IF STRCMP(type,'mean') EQ 1 THEN BEGIN
-        output[i] = MEAN(array[filterWindow])
-    ENDIF
-ENDFOR 
-
-RETURN, output
-
-END
-
-;-------------------------------------------------------------------------------
-;
-; Purpose: Main function
-;
 FUNCTION normalize, wave, flux, pixelHa, frame, WIDTH=inputWidth, $
     IGNORE=inputIgnore, FIT=inputFit
 
@@ -127,8 +85,8 @@ patchedPixels = LINDGEN((width*2)+1,START=pixelHa-width)
 
 ;Median filter left and right separately
 medianWidth = 50
-medianLeft = normalizefilter(flux[leftPixels],medianWidth,TYPE='median')
-medianRight = normalizefilter(flux[rightPixels],medianWidth, $
+medianLeft = filter(flux[leftPixels],medianWidth,TYPE='median')
+medianRight = filter(flux[rightPixels],medianWidth, $
     TYPE='median')
 
 ;Reposition filtered arrays
@@ -156,7 +114,7 @@ separated[patchedPixels] = interpolated
 
 ;Boxcar filter
 boxWidth = 25
-boxFlux = normalizeFilter(separated,boxWidth,TYPE='mean')
+boxFlux = filter(separated,boxWidth,TYPE='mean')
 
 continuum = boxFlux
 
