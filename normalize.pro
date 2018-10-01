@@ -9,18 +9,19 @@
 ;       flux :   array of flattened fluxes
 ;       pixelHa :   pixel nearest Ha (656.28 nm)
 ; Output:
-;       output  :   structure with continuum, and red zone width 
+;       output  :   structure
 ; Keyword parameters:
 ;       WIDTH   :   Red zone width
 ;       IGNORE  :   Wavelengths to be ignored (fixed width patching)
 ;       FIT     :   Fit parameters for red region
+;       SCREEN  :   Screen output?
 ; Author and history:
 ;       C.A.L. Bailer-Jones et al., 1998    :  Filtering algorithm 
 ;       Daniel Hatcher, 2018    :   IDL implementation and patching automation
 ;-
 
 FUNCTION normalize, wave, flux, pixelHa, frame, WIDTH=inputWidth, $
-    IGNORE=inputIgnore, FIT=inputFit
+    IGNORE=inputIgnore, FIT=inputFit, SCREEN=inputScreen
 
 COMPILE_OPT IDL2
 
@@ -121,8 +122,7 @@ continuum = boxFlux
 normalized = flux/continuum
 
 ;Output to screen?
-screen = 1
-IF screen THEN BEGIN
+IF KEYWORD_SET(inputScreen) AND inputScreen EQ 1 THEN BEGIN
     !P.MULTI = [0,1,2,0,0]
 
     ;Colors
@@ -132,8 +132,6 @@ IF screen THEN BEGIN
     titleText = frame+" Width: "+STRTRIM(STRING(width),2)
     PLOT, wave,flux,PSYM=3,title=titleText,xtitle='Wavelength (nm)', $
         ytitle='Flattened Flux',yrange=[MIN(continuum),MAX(continuum)]
-    OPLOT, [wave[leftShoulder],wave[rightShoulder]],[flux[leftShoulder],$
-        flux[rightShoulder]],PSYM=4
     OPLOT, wave[leftPixels],continuum[leftPixels]
     OPLOT, wave[rightPixels],continuum[rightPixels]
     OPLOT, wave[patchedPixels],continuum[patchedPixels],LINESTYLE=2
@@ -153,9 +151,11 @@ ENDIF
 ;Output structure 
 output = {$
     continuum   :   continuum, $
+    normalized  :   normalized, $
     width   :   width, $
     patch   :   patchedPixels, $
-    shoulders   :   [leftShoulder,rightShoulder]}
+    notpatch:   joinedPixels, $
+    ends    :   joinedPixels[endPoints]}
 
 RETURN, output
 
