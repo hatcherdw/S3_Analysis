@@ -41,8 +41,7 @@ IF KEYWORD_SET(inputNod) THEN BEGIN
         preNorm = flatDiv / nodSmooth
     ENDELSE
 ENDIF ELSE BEGIN
-    PRINT, 'Nod order not set! Outputting flat divided spectrum only!'    
-    preNorm = !VALUES.F_NAN
+    MESSAGE, 'Nod order not set!'
 ENDELSE  
 
 Ha = 656.28
@@ -53,6 +52,7 @@ output = {$
     wave    :   wave, $
     pixelHa :   pixelHa, $
     flatDiv :   flatDiv, $
+    nodDiv  :   nodDiv, $
     nodSmooth   :   nodSmooth, $
     preNorm :   preNorm}
 
