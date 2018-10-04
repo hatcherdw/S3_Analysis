@@ -32,22 +32,24 @@ minDist = 1.0 - minFlux
 maxDist = maxFlux - 1.0
 
 ;Choose most extreme
-IF minDist GT maxDist THEN extreme = minInd
-IF maxDist GT minDist THEN extreme = maxInd
+IF maxDist GT minDist THEN BEGIN 
+    extreme = maxInd
+ENDIF ELSE IF minDist GT maxDist THEN BEGIN 
+    extreme = minInd
+ENDIF
 
-;Set upper limit
-upperLimit = 0.2*sFlux[extreme]
+limit = 0.4*ABS(sFlux[extreme]-1.0)
 
-;Find first point beyond upper limit
+;Find first point beyond limit
 FOR i = 0, extreme DO BEGIN
-    IF ABS(sFlux[i]-1.0) GT upperLimit THEN BEGIN
-        leftStop = i-1
+    IF ABS(sFlux[i]-1.0) GT limit THEN BEGIN
+        leftStop = i
         BREAK
     ENDIF
 ENDFOR
 FOR j = N_ELEMENTS(sFlux)-1, extreme, -1 DO BEGIN
-    IF ABS(sFlux[j]-1.0) GT upperLimit THEN BEGIN
-        rightStop = j-1
+    IF ABS(sFlux[j]-1.0) GT limit THEN BEGIN
+        rightStop = j
         BREAK
     ENDIF
 ENDFOR
@@ -70,7 +72,6 @@ void = CHECK_MATH()
 
 ;Fit single gaussian
 fit = GAUSSFIT([left,right],[fluxLeft,fluxRight],A,NTERMS=5)
-centroid = ROUND(A[1])
 
 ;Check for floating underflow error
 floating_point_underflow = 32
@@ -83,13 +84,17 @@ ENDIF
 ;Restore original reporting condition
 !EXCEPT = currentExcept 
 
+centroid = ROUND(A[1])
+
 ;PLOT, inputFlux
 ;OPLOT, [centroid,centroid],[MIN(inputFlux),MAX(inputFlux)]
 
 output = {$
     centroid    :   centroid, $
     left    :   left, $
-    right   :   right}    
+    right   :   right, $
+    const   :   A[3], $
+    lin     :   A[4]}
 
 RETURN, output
 
