@@ -14,31 +14,32 @@
 ;       Daniel Hatcher, 2018
 ;-
 
-FUNCTION centroid, inputFlux
+FUNCTION centroid, inputFlux, frame, SCREEN=inputScreen
 
 COMPILE_OPT IDL2
 
 sFlux = filter(inputFlux,5,TYPE='median')
 
 ;Find extreme values
-roi = LINDGEN(100,START=300)
+roi = LINDGEN(150,START=250)
 minFlux = MIN(sFlux[roi],minInd)
 maxFlux = MAX(sFlux[roi],maxInd)
 minInd = roi[minInd]
 maxInd = roi[maxInd]
 
 ;How extreme?
-minDist = 1.0 - minFlux
-maxDist = maxFlux - 1.0
+minDist = ABS(1.0 - minFlux)
+maxDist = ABS(1.0 - maxFlux)
 
 ;Choose most extreme
 IF maxDist GT minDist THEN BEGIN 
     extreme = maxInd
-ENDIF ELSE IF minDist GT maxDist THEN BEGIN 
+ENDIF 
+IF minDist GT maxDist THEN BEGIN 
     extreme = minInd
 ENDIF
 
-limit = 0.4*ABS(sFlux[extreme]-1.0)
+limit = 0.45*ABS(sFlux[extreme]-1.0)
 
 ;Find first point beyond limit
 FOR i = 0, extreme DO BEGIN
@@ -71,30 +72,46 @@ currentExcept = !EXCEPT
 void = CHECK_MATH()
 
 ;Fit single gaussian
-fit = GAUSSFIT([left,right],[fluxLeft,fluxRight],A,NTERMS=5)
+IF extreme EQ maxInd THEN BEGIN
+    fit = GAUSSFIT([left,right],[fluxLeft,fluxRight],A,NTERMS=5)
+ENDIF ELSE IF extreme EQ minInd THEN BEGIN
+    fit = GAUSSFIT([left,right],[fluxLeft,fluxRight],A,NTERMS=5,$
+        ESTIMATES=[-1,350,50,1,0.01])
+ENDIF
 
 ;Check for floating underflow error
 floating_point_underflow = 32
 status = CHECK_MATH()
 IF (status AND NOT floating_point_underflow) NE 0 THEN BEGIN
     ;Report any other math errors
-    MESSAGE, 'IDL CHECK_MATH() error: ' + STRTRIM(status, 2)    
+    PRINT, 'IDL CHECK_MATH() error: ' + STRTRIM(status, 2)    
 ENDIF
 
 ;Restore original reporting condition
 !EXCEPT = currentExcept 
 
-centroid = ROUND(A[1])
 
-;PLOT, inputFlux
-;OPLOT, [centroid,centroid],[MIN(inputFlux),MAX(inputFlux)]
+;Resampling
+range = right[-1]-left[0]
+xsamples = FINDGEN(range,START=left[0])
+z = (xsamples - A[1])/A[2]
+rfit = A[0]*exp((-(z^2))/2) + A[3] + A[4]*xsamples
+
+centroid = A[1]
+
+IF KEYWORD_SET(inputScreen) AND inputScreen EQ 1 THEN BEGIN
+    ;PLOT, sFlux,title=frame, PSYM=4
+    PLOT, left, sFlux[left], PSYM=4, xrange=[MIN(left),MAX(right)],title=frame
+    OPLOT, right, sFlux[right], PSYM=4
+    ;OPLOT, [centroid,centroid],[MIN(inputFlux),MAX(inputFlux)]
+    OPLOT, xsamples,rfit
+ENDIF
 
 output = {$
     centroid    :   centroid, $
     left    :   left, $
     right   :   right, $
-    const   :   A[3], $
-    lin     :   A[4]}
+    const   :   A[3]}
 
 RETURN, output
 
