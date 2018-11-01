@@ -405,7 +405,7 @@ END
 ;;      Continuum normalization
 ;;
 
-FUNCTION contnorm, wave, flux, pixel, FRAME=frame, WIDTH=inputWidth, $
+FUNCTION contnorm, wave, flux, index, FRAME=frame, WIDTH=inputWidth, $
     SCREEN=inputScreen
 
 COMPILE_OPT IDL2
@@ -423,26 +423,33 @@ ENDIF
 
 ;;If width not specified, search
 IF NOT KEYWORD_SET(inputWidth) THEN BEGIN
-    ;;Search for left and right shoulder of Ha feature
-    ;;Maximum search distance beyond lab frame pixel
-    searchWidth = 50
+    ;;Search for left and right shoulder of feature
+    ;;Maximum search distance beyond lab frame index
+    searchWidth = 70
 
     ;;Buffer around core not to be searched
     coreBuffer = 10
 
+    ;;Check if maximum search width exceeded
+    IF (index-searchWidth) LT 0 OR (index+searchWidth) GT fluxSize[1] THEN BEGIN
+        PRINT, "Shoulder search width is too large!"
+        PRINT, "Using maximum search width!"
+        searchWidth = MIN([index,fluxSize[1]-index])  
+    ENDIF
+
     ;;Create search indices
-    leftSearch = LINDGEN(searchWidth-coreBuffer,START=pixel-searchWidth)
+    leftSearch = LINDGEN(searchWidth-coreBuffer,START=index-searchWidth)
     ;;Search starting from right end of spectrum (reversed)
     rightSearch = REVERSE(LINDGEN(searchWidth-coreBuffer, $
-        START=pixel+coreBuffer))
+        START=index+coreBuffer))
 
-    ;;Search blue (left) side of Ha
-    leftResult = zscorepeaks(flux[leftSearch],LAG=10,T=1.5,INF=0.1)
+    ;;Search blue (left) side
+    leftResult = zscorepeaks(flux[leftSearch],LAG=5,T=1.5,INF=0.1)
 
-    ;;Search red (right) side of Ha
-    rightResult = zscorepeaks(flux[rightSearch],LAG=10,T=1.5,INF=0.1)
+    ;;Search red (right) side
+    rightResult = zscorepeaks(flux[rightSearch],LAG=5,T=1.5,INF=0.1)
 
-    ;;Find first position of last signal (blue side of Ha)
+    ;;Find first position of last signal (blue side)
     FOR i = N_ELEMENTS(leftSearch)-1,0,-1 DO BEGIN
         lastValue = leftResult.signals[-1]
         IF leftResult.signals[i] NE lastValue THEN BEGIN
@@ -451,7 +458,7 @@ IF NOT KEYWORD_SET(inputWidth) THEN BEGIN
         ENDIF
     ENDFOR
 
-   ;;Find first position of last signal (red side of Ha)
+   ;;Find first position of last signal (red side)
     FOR i = N_ELEMENTS(rightSearch)-1,0,-1 DO BEGIN
         lastValue = rightResult.signals[-1]
         IF rightResult.signals[i] NE lastValue THEN BEGIN
@@ -461,7 +468,7 @@ IF NOT KEYWORD_SET(inputWidth) THEN BEGIN
     ENDFOR
 
     ;;Choose largest width
-    width = MAX([(rightShoulder-pixel),(pixel-leftShoulder)])
+    width = MAX([(rightShoulder-index),(index-leftShoulder)])
 ENDIF ELSE BEGIN
     ;;If specified, use input width
     width = inputWidth
@@ -476,12 +483,12 @@ ENDIF
 
 ;;Remove feature
 totalPixels = N_ELEMENTS(flux)
-leftPixels = LINDGEN(pixel-width)
-rightPixels = LINDGEN(totalPixels-(pixel+width),START=pixel+width)
-patchedPixels = LINDGEN((width*2)+1,START=pixel-width)
+leftPixels = LINDGEN(index-width)
+rightPixels = LINDGEN(totalPixels-(index+width),START=index+width)
+patchedPixels = LINDGEN((width*2)+1,START=index-width)
 
 ;;Median filter left and right separately
-medianWidth = 50
+medianWidth = 30
 medianLeft = filter(flux[leftPixels],medianWidth,TYPE='median')
 medianRight = filter(flux[rightPixels],medianWidth, $
     TYPE='median')
@@ -502,7 +509,7 @@ interpolated = const + patchedPixels*slope[0]
 separated[patchedPixels] = interpolated
 
 ;;Boxcar filter
-boxWidth = 25
+boxWidth = 10
 boxFlux = filter(separated,boxWidth,TYPE='mean')
 
 continuum = boxFlux
@@ -528,8 +535,8 @@ IF KEYWORD_SET(inputScreen) THEN BEGIN
         OPLOT, wave[leftPixels],continuum[leftPixels]
         OPLOT, wave[rightPixels],continuum[rightPixels]
         OPLOT, wave[patchedPixels],continuum[patchedPixels],LINESTYLE=2
-        OPLOT, [wave[pixel-width],wave[pixel-width]],[MIN(flux),MAX(flux)]
-        OPLOT, [wave[pixel+width],wave[pixel+width]],[MIN(flux),MAX(flux)]
+        OPLOT, [wave[index-width],wave[index-width]],[MIN(flux),MAX(flux)]
+        OPLOT, [wave[index+width],wave[index+width]],[MIN(flux),MAX(flux)]
         PLOT, wave,spectrum,xtitle='Wavelength (nm)', $
             ytitle='Normalized Flux',yrange=[0.9,1.1]
         OPLOT, wave[patchedPixels],spectrum[patchedPixels],COLOR=250
@@ -564,6 +571,7 @@ FUNCTION bluenormalizer,inputFlux,inputWave,inputDate,inputFrame,$
     DIAGSCREEN=diagScreen,OUTFILE=outFile,FLAT=inputFlat
 
 COMPILE_OPT IDL2
+ON_ERROR, 3
 
 ;;Define system variables
 preferences
@@ -604,26 +612,24 @@ rightFlux = flatDiv[rightPixels]
 leftWave = wave[leftPixels]
 rightWave = wave[rightPixels]
 
-;;Find pixel closest to wavelengths
+;;Find index closest to wavelengths
 distanceH8 = ABS(leftWave-H8)
-minDistanceH8 = MIN(distanceH8,pixelH8)
+minDistanceH8 = MIN(distanceH8,indexH8)
 distanceHe = ABS(rightWave-He)
-minDistanceHe = MIN(distanceHe,pixelHe) 
+minDistanceHe = MIN(distanceHe,indexHe) 
 
 ;;Continuum normalization left and right
-normalizedLeft = contnorm(leftWave,leftFlux,pixelH8,FRAME=inputFrame)
-normalizedRight = contnorm(rightWave,rightFlux,pixelHe,FRAME=inputFrame)
+normalizedLeft = contnorm(leftWave,leftFlux,indexH8,FRAME=inputFrame)
+normalizedRight = contnorm(rightWave,rightFlux,indexHe,FRAME=inputFrame)
 
 ;;Interpolate across middle region
-slope = REGRESS([leftWave[-1],rightWave[0]],[normalizedLeft.continuum[-1],$
-    normalizedRight.continuum[0]],CONST=const)
-middleInterpolation = const + middlePixels*slope[0]
-middleDiv = flatDiv[middlePixels] / middleInterpolation
+middle = filter(flatDiv[middlePixels],30,TYPE='median')
 
-PLOT, leftWave, leftFlux, XRANGE=[MIN(leftWave),MAX(rightWave)]
-OPLOT, rightWave, rightFlux
-OPLOT, leftWave, normalizedLeft.continuum, LINESTYLE=2
-OPLOT, rightWave, normalizedRight.continuum, LINESTYLE=2
+!P.MULTI = [0,1,2,0,0]
+PLOT, wave, flatDiv, PSYM=3
+OPLOT, wave, [normalizedLeft.continuum,middle,normalizedRight.continuum]
+
+PLOT, wave, flatDiv/[normalizedLeft.continuum,middle,normalizedRight.continuum]
 
 RETURN, 0
 
