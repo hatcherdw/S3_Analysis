@@ -37,13 +37,9 @@ flatListFile = 'flat_list_new_CCD.txt'
 ;;Directory containing flats
 flatDir = '/storage/hatch1dw/RAW-FLATS-ALL-NEW-CCD/'
 
-;;Directory containing frames
-frameDir = '/storage/hatch1dw/NEW-CCD-all-orders-data/'
-
 ;;Define read-only system variables
 DEFSYSV, '!FLATLIST', flatListDir + flatListFile, 1
 DEFSYSV, '!FLATDIR', flatDir, 1
-DEFSYSV, '!FRAMEDIR', frameDir, 1
 
 END
 
@@ -799,7 +795,7 @@ ENDIF
 
 IF KEYWORD_SET(inputScreen) THEN BEGIN
     IF inputScreen EQ 1 THEN BEGIN
-        ;Colors
+        ;;Colors
         DEVICE, DECOMPOSED=0
         LOADCT, 39, /SILENT
 
@@ -880,6 +876,21 @@ COMPILE_OPT IDL2
 ;;Define system variables
 preferences
 
+;;Check NORMSCREEN and set default
+IF NOT KEYWORD_SET(normScreen) THEN BEGIN
+    normScreen = 0
+ENDIF
+
+;;Create output file and turn on screens
+IF KEYWORD_SET(outFile) THEN BEGIN
+    SET_PLOT, 'ps'
+    DEVICE, /COLOR, BITS_PER_PIXEL=8
+    DEVICE, XSIZE=7, YSIZE=10, XOFFSET=0.5, YOFFSET=0.5, /INCHES
+    DEVICE, FILENAME = outFile
+    normScreen = 1
+    diagScreen = 1
+ENDIF
+
 ;;Zero indexed Halpha order
 order = 10
 
@@ -917,44 +928,28 @@ ENDIF
 distance = ABS(wave - Ha)
 minDistance = MIN(distance,pixelHa)
 
-;;If an outfile is provided, create plots by default
-IF KEYWORD_SET(outFile) THEN BEGIN
-    SET_PLOT, 'ps'
-    DEVICE, /COLOR, BITS_PER_PIXEL=8
-    DEVICE, XSIZE=7, YSIZE=10, XOFFSET=0.5, YOFFSET=0.5, /INCHES
-    DEVICE, FILENAME = outFile
-    IF KEYWORD_SET(inputWidth) THEN BEGIN
-        normalized = contnorm(wave,flatDiv,pixelHa,FRAME=inputFrame,$ 
-            WIDTH=inputWidth,SCREEN=1)
-    ENDIF ELSE BEGIN
-        normalized = contnorm(wave,flatDiv,pixelHa,FRAME=inputFrame,$
-            SCREEN=1) 
-    ENDELSE
-    IF KEYWORD_SET(diagScreen) THEN BEGIN
-        IF diagScreen EQ 1 THEN BEGIN
-            c = centroid(normalized.spectrum)
-            wingcompare, normalized.spectrum,c.centroid,c.left,c.right,$
-                inputFrame,SCREEN=1
-        ENDIF
-    ENDIF
-    DEVICE, /CLOSE_FILE
-;;If no outfile provided, follow keywords
+;;Continuum normalization
+IF KEYWORD_SET(inputWidth) THEN BEGIN
+    normalized = contnorm(wave,flatDiv,pixelHa,FRAME=inputFrame,$ 
+        WIDTH=inputWidth,SCREEN=normScreen)
 ENDIF ELSE BEGIN
-    IF KEYWORD_SET(inputWidth) THEN BEGIN
-        normalized = contnorm(wave,flatDiv,pixelHa,FRAME=inputFrame,$ 
-            WIDTH=inputWidth,SCREEN=normScreen)
-    ENDIF ELSE BEGIN
-        normalized = contnorm(wave,flatDiv,pixelHa,FRAME=inputFrame,$
-            SCREEN=normScreen) 
-    ENDELSE
-    IF KEYWORD_SET(diagScreen) THEN BEGIN
-        IF diagScreen EQ 1 THEN BEGIN
-            c = centroid(normalized.spectrum)
-            wingcompare, normalized.spectrum,c.centroid,c.left,c.right,$
-                inputFrame,SCREEN=1
-        ENDIF
-    ENDIF
+    normalized = contnorm(wave,flatDiv,pixelHa,FRAME=inputFrame,$
+        SCREEN=normScreen) 
 ENDELSE
+
+;;Diagnostic plots
+IF KEYWORD_SET(diagScreen) THEN BEGIN
+    IF diagScreen EQ 1 THEN BEGIN
+        c = centroid(normalized.spectrum)
+        wingcompare,normalized.spectrum,c.centroid,c.left,c.right,$
+            inputFrame,SCREEN=1
+    ENDIF
+ENDIF
+
+;;Close output file
+IF KEYWORD_SET(outFile) THEN BEGIN
+    DEVICE, /CLOSE_FILE
+ENDIF
 
 RETURN, normalized.spectrum
 
