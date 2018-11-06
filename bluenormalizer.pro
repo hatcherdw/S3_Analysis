@@ -37,13 +37,9 @@ flatListFile = 'flat_list_new_CCD.txt'
 ;;Directory containing flats
 flatDir = '/storage/hatch1dw/RAW-FLATS-ALL-NEW-CCD/'
 
-;;Directory containing frames
-frameDir = '/storage/hatch1dw/NEW-CCD-all-orders-data/'
-
 ;;Define read-only system variables
 DEFSYSV, '!FLATLIST', flatListDir + flatListFile, 1
 DEFSYSV, '!FLATDIR', flatDir, 1
-DEFSYSV, '!FRAMEDIR', frameDir, 1
 
 END
 
@@ -405,6 +401,35 @@ END
 ;;      Continuum normalization
 ;;
 
+;;+
+;;Name:
+;;      contnorm
+;;Purpose:
+;;      Continuum normalization 
+;;Calling sequence:
+;;      Result = contnorm(wave,flux,index[,FRAME=string][,WIDTH=integer]
+;;      [,SCREEN=binary])
+;;Positional parameters:
+;;      wave    :   1D array of wavelengths
+;;      flux    :   1D array of flat-divided flux values
+;;      index   :   wave array index nearest to lab wavelength
+;;                  of region of interest
+;;Keyword parameters:
+;;      FRAME   :   string frame number (for plotting)
+;;      WIDTH   :   Feature width, dynamic if not provided
+;;      SCREEN  :   Screen output flag, 1 is on
+;;Output:
+;;      output  :   structure with tags:
+;;          continuum   :   512x1 estimate of the continuum
+;;          spectrum    :   512x1 input flux divided by continuum
+;;          width       :   integer width of the feature patch
+;;          patch       :   array of patched pixels
+;;          notpatch    :   array of pixels not part of the patch
+;;Author and history:
+;;      C.A.L. Bailer-Jones et al., 1998    :  Filtering algorithm
+;;      Daniel Hatcher, 2018    :   IDL implementation
+;;-
+
 FUNCTION contnorm, wave, flux, index, FRAME=frame, WIDTH=inputWidth, $
     SCREEN=inputScreen
 
@@ -525,7 +550,7 @@ IF KEYWORD_SET(inputScreen) THEN BEGIN
     IF inputScreen EQ 1 THEN BEGIN
         !P.MULTI = [0,1,2,0,0]
 
-        ;Colors
+        ;;Colors
         DEVICE, DECOMPOSED=0
         LOADCT, 39, /SILENT
 
@@ -549,7 +574,7 @@ IF KEYWORD_SET(inputScreen) THEN BEGIN
     ENDIF
 ENDIF
 
-;Output structure
+;;Output structure
 output = {$
     continuum   :   continuum, $
     spectrum    :   spectrum, $
@@ -566,6 +591,33 @@ END
 ;;      Main
 ;;
 
+;;+
+;;Name:
+;;      bluenormalizer
+;;Purpose:
+;;      Continuum normalization of SSS order 0
+;;Calling sequence:
+;;      Result = bluenormalizer(inputFlux,inputWave,inputDate,inputFrame,
+;;      [,PRENORM=integer][,WIDTH=integer or array][,NORMSCREEN=binary]
+;;      [,DIAGSCREEN=binary][,OUTFILE=string][,FLAT=string])
+;;Positional parameters:
+;;      inputFlux   :   512x16 array of floats (raw flux, no flat division)
+;;      inputWave   :   512x16 array of floats
+;;      inputDate   :   Date fromatted as YYYY-MM-DD
+;;      inputFrame  :   string frame number of length 5 (for plotting)
+;;Optional parameters (keywords):
+;;      PRENORM     :   order used for prenormalization, recommend 11 (index 0)
+;;      WIDTH       :   width of feature (integer or 2-element array)
+;;      NORMSCREEN  :   binary output flag for normalization plots, 1 is on
+;;      DIAGSCREEN  :   binary output flag for diagnostic plots, 1 is on
+;;      OUTFILE     :   path to output file (PostScript)
+;;      FLAT        :   string frame number of length 5
+;;Output:
+;;      output      :   continuum normalized spectrum (512 float array)
+;;Author and history:
+;;      Daniel Hatcher, 2018
+;;-
+
 FUNCTION bluenormalizer,inputFlux,inputWave,inputDate,inputFrame,$
     PRENORM=prenorm,WIDTH=inputWidth,NORMSCREEN=normScreen,$
     DIAGSCREEN=diagScreen,OUTFILE=outFile,FLAT=inputFlat
@@ -575,6 +627,20 @@ ON_ERROR, 3
 
 ;;Define system variables
 preferences
+
+;;Set keyword default values
+IF NOT KEYWORD_SET(normScreen) THEN BEGIN
+    normScreen = 0
+ENDIF
+
+;;Create output file if provided and turn on screens
+IF KEYWORD_SET(outFile) THEN BEGIN
+    SET_PLOT, 'ps'
+    DEVICE, /COLOR, BITS_PER_PIXEL=8
+    DEVICE, XSIZE=7, YSIZE=10, XOFFSET=0.5, YOFFSET=0.5, /INCHES
+    DEVICE, FILENAME = outFile 
+    normScreen = 1
+ENDIF
 
 ;;Zero indexed order
 order = 0
@@ -618,19 +684,45 @@ minDistanceH8 = MIN(distanceH8,indexH8)
 distanceHe = ABS(rightWave-He)
 minDistanceHe = MIN(distanceHe,indexHe) 
 
-;;Continuum normalization left and right
-normalizedLeft = contnorm(leftWave,leftFlux,indexH8,FRAME=inputFrame)
-normalizedRight = contnorm(rightWave,rightFlux,indexHe,FRAME=inputFrame)
+;;If width(s) provided
+IF KEYWORD_SET(inputWidth) THEN BEGIN
+    numWidths = N_ELEMENTS(inputWidth)
+    ;;Integer width
+    IF numWidths EQ 1 THEN BEGIN
+        normalizedLeft = contnorm(leftWave,leftFlux,indexH8,FRAME=inputFrame,$
+            WIDTH=inputWidth,SCREEN=normScreen)
+        normalizedRight = contnorm(rightWave,rightFlux,indexHe,$
+            FRAME=inputFrame,WIDTH=inputWidth,SCREEN=normScreen)
+    ;;Array of widths
+    ENDIF ELSE IF numWidths EQ 2 THEN BEGIN
+        ;;Array element 0 is H8 width
+        normalizedLeft = contnorm(leftWave,leftFlux,indexH8,FRAME=inputFrame,$
+            WIDTH=inputWidth[0],SCREEN=normScreen)
+        ;;Array element 1 is He width
+        normalizedRight = contnorm(rightWave,rightFlux,indexHe,$
+            FRAME=inputFrame,WIDTH=inputWidth[1],SCREEN=normScreen)
+    ENDIF ELSE BEGIN
+        MESSAGE, "Width must be intger or 2-element array of integers!"
+    ENDELSE
+;;No widths
+ENDIF ELSE BEGIN
+    normalizedLeft = contnorm(leftWave,leftFlux,indexH8,FRAME=inputFrame,$
+        SCREEN=normScreen)
+    normalizedRight = contnorm(rightWave,rightFlux,indexHe,FRAME=inputFrame,$
+        SCREEN=normScreen)
+ENDELSE
 
 ;;Interpolate across middle region
 middle = filter(flatDiv[middlePixels],30,TYPE='median')
+middleSpectrum = flatDiv[middlePixels]/middle
 
-!P.MULTI = [0,1,2,0,0]
-PLOT, wave, flatDiv, PSYM=3
-OPLOT, wave, [normalizedLeft.continuum,middle,normalizedRight.continuum]
+;;Close outout file
+IF KEYWORD_SET(outFile) THEN BEGIN
+    DEVICE, /CLOSE_FILE
+ENDIF
 
-PLOT, wave, flatDiv/[normalizedLeft.continuum,middle,normalizedRight.continuum]
+output = [normalizedLeft.spectrum,middleSpectrum,normalizedRight.spectrum]
 
-RETURN, 0
+RETURN, output
 
 END
