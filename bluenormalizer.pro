@@ -27,6 +27,7 @@
 PRO preferences
 
 COMPILE_OPT IDL2
+ON_ERROR, 3
 
 ;;Directory containing flat list
 flatListDir = '/home/central/hatch1dw/Programs/S3_Analysis/'
@@ -68,6 +69,7 @@ END
 FUNCTION locateflat, inputDate
 
 COMPILE_OPT IDL2
+ON_ERROR, 3
 
 ;;Check input
 IF STRCMP(SIZE(inputDate,/TNAME),'STRING') EQ 0 THEN BEGIN
@@ -136,6 +138,7 @@ END
 FUNCTION readflat, inputFrame
 
 COMPILE_OPT IDL2
+ON_ERROR, 3
 
 ;;Check input
 IF STRCMP(SIZE(inputFrame,/TNAME),'STRING') EQ 0 THEN BEGIN
@@ -218,6 +221,7 @@ END
 FUNCTION filter, inputArray, inputWidth, TYPE=type
 
 COMPILE_OPT IDL2
+ON_ERROR, 3
 
 ;;Check input
 arraySize = SIZE(inputArray)
@@ -298,6 +302,7 @@ FUNCTION zscorepeaks,inputData,LAG=inputLag,T=inputT,INF=inputInf, $
     SCREEN=inputScreen
 
 COMPILE_OPT IDL2
+ON_ERROR, 3
 
 ;;Check input
 dataSize = SIZE(inputData)
@@ -434,6 +439,7 @@ FUNCTION contnorm, wave, flux, index, FRAME=frame, WIDTH=inputWidth, $
     SCREEN=inputScreen
 
 COMPILE_OPT IDL2
+ON_ERROR, 3
 
 ;;Check inputs
 waveSize = SIZE(wave)
@@ -588,6 +594,262 @@ END
 
 ;;------------------------------------------------------------------------------
 ;;
+;;      Centroid finder
+;;
+
+;;+
+;;Name:
+;;      centroid
+;;Purpose:
+;;      Find centroid of feature assuming Gaussian wing profile.
+;;      Also determines amount of continuum to include for later comparisons.
+;;Calling sequence:
+;;      Result = centroid(inputFlux[,FRAME=string][,SCREEN=binary])
+;;Positional parameters:
+;;      inputFlux   :   1D array of floats
+;;Keyword parameters:
+;;      FRAME   :   string frame number (for plotting)
+;;      SCREEN  :   Screen output flag, 1 is on
+;;Output:
+;;      output  :   structure with tags:
+;;          centroid    :   center of the fitted Gaussian (float)
+;;          left        :   pixels used for fitting on left (integer array)
+;;          right       :   pixels used for fitting on right (integer array)
+;;          const       :   constant of fit (float)
+;;Author and history:
+;;      Daniel Hatcher, 2018
+;;-
+
+FUNCTION centroid, inputFlux, FRAME=inputFrame, SCREEN=inputScreen
+
+COMPILE_OPT IDL2
+ON_ERROR, 3
+
+;;Check input
+inputSize = SIZE(inputFlux)
+IF inputSize[0] GT 1 THEN BEGIN
+    MESSAGE, "Input must be 1D!"
+ENDIF ELSE BEGIN
+    num = inputSize[1]
+ENDELSE
+
+;;Median smoothing
+sFlux = filter(inputFlux,5,TYPE='median')
+
+;;Find extreme values
+minFlux = MIN(sFlux,minInd)
+maxFlux = MAX(sFlux,maxInd)
+
+;;How extreme?
+minDist = ABS(1.0 - minFlux)
+maxDist = ABS(1.0 - maxFlux)
+
+;;Choose most extreme
+IF maxDist GT minDist THEN BEGIN
+    extreme = maxInd
+ENDIF ELSE IF minDist GT maxDist THEN BEGIN
+    extreme = minInd
+ENDIF
+
+;;Threshold for wings
+limit = 0.45*ABS(sFlux[extreme]-1.0)
+
+;;Find first point beyond limit
+FOR i = 0, extreme DO BEGIN
+    IF ABS(sFlux[i]-1.0) GT limit THEN BEGIN
+        leftStop = i
+        BREAK
+    ENDIF
+ENDFOR
+FOR j = num-1, extreme, -1 DO BEGIN
+    IF ABS(sFlux[j]-1.0) GT limit THEN BEGIN
+        rightStop = j
+        BREAK
+    ENDIF
+ENDFOR
+
+;;Wing pixel locations
+length = num - rightStop
+left = LINDGEN(length,START=leftStop-length)
+right = LINDGEN(length,START=rightStop)
+
+fluxLeft = sFlux[left]
+fluxRight = SFlux[right]
+
+;;Turn off math error reporting to suppress benign underflow error messages
+;;that sometimes occur when fitting gaussian
+currentExcept = !EXCEPT
+!EXCEPT = 0
+
+;;Flush current math error register
+void = CHECK_MATH()
+
+;;Fit single gaussian
+IF extreme EQ maxInd THEN BEGIN
+    fit = GAUSSFIT([left,right],[fluxLeft,fluxRight],A,NTERMS=5)
+ENDIF ELSE IF extreme EQ minInd THEN BEGIN
+    ;;If extreme point is a minimum, provide estimates
+    ;;Assume centroid near center of input array
+    centerIndex = ROUND(num/2)
+    gaussEstimates = [-1,centerIndex,30,1,0.01]
+    fit = GAUSSFIT([left,right],[fluxLeft,fluxRight],A,NTERMS=5,$
+        ESTIMATES=gaussEstimates)
+ENDIF
+
+;;Resampling (for plotting)
+range = right[-1]-left[0]
+xsamples = FINDGEN(range,START=left[0])
+z = (xsamples - A[1])/A[2]
+rfit = A[0]*exp((-(z^2))/2) + A[3] + A[4]*xsamples
+
+;;Check for floating underflow error
+floating_point_underflow = 32
+status = CHECK_MATH()
+IF (status AND NOT floating_point_underflow) NE 0 THEN BEGIN
+    ;;Report any other math errors
+    MESSAGE, 'IDL CHECK_MATH() error: ' + STRTRIM(status, 2)
+ENDIF
+
+;;Restore original reporting condition
+!EXCEPT = currentExcept
+
+centroid = A[1]
+
+IF KEYWORD_SET(inputScreen) THEN BEGIN
+    IF inputScreen EQ 1 THEN BEGIN
+        PLOT, left, sFlux[left], PSYM=4, xrange=[MIN(left),MAX(right)],$
+            title=frame
+        OPLOT, right, sFlux[right], PSYM=4
+        OPLOT, xsamples,rfit
+    ENDIF
+ENDIF
+
+output = {$
+    centroid    :   centroid, $
+    left    :   left, $
+    right   :   right, $
+    const   :   A[3]}
+
+RETURN, output
+
+END
+
+;;------------------------------------------------------------------------------
+;;
+;;      Wing comparison
+;;
+
+;;+
+;;Name:
+;;      wingcompare
+;;Purpose:
+;;      Compare wings of feature assuming a Gaussian wing profile
+;;Calling sequence:
+;;      wingcompare, flux,centroid,left,right,frame[,SCREEN=bianry]
+;;Positional parameters:
+;;      flux    :   continuum normalized flux
+;;      centroid:   center as determined by centroid function (float)
+;;      left    :   array of pixels left of wing
+;;      right   :   array of pixels right of wing
+;;      frame   :   string frame number (for plotting)
+;;Keyword parameters:
+;;      SCREEN  :   Screen output flag, 1 is on
+;;Output:
+;;      None
+;;Author and history:
+;;      Daniel Hatcher, 2018
+;;-
+
+PRO wingcompare, flux, centroid, left, right, frame, SCREEN=inputScreen
+
+COMPILE_OPT IDL2
+
+leftDist = ABS(left-centroid)
+rightDist = ABS(right-centroid)
+
+;Turn off math error reporting to suppress benign underflow error messages
+;that sometimes occur when fitting gaussian
+currentExcept = !EXCEPT
+!EXCEPT = 0
+
+;Flush current math error register
+void = CHECK_MATH()
+
+;Fit left and right gaussians
+nterms = 4
+fitL = GAUSSFIT(leftDist,flux[left],coeffL,NTERMS=nterms)
+fitR = GAUSSFIT(rightDist,flux[right],coeffR,NTERMS=nterms)
+
+;Resample
+rsLeft = FINDGEN(2*N_ELEMENTS(left),START=MIN([leftDist,rightDist]),$
+    INCREMENT=0.5)
+rsRight = rsLeft
+
+;Calculate fit at resampled points
+rsLeftFit = FLTARR(N_ELEMENTS(rsLeft))
+rsRightFit = FLTARR(N_ELEMENTS(rsRight))
+FOR i = 0, N_ELEMENTS(rsLeft)-1 DO BEGIN
+    zL = (rsLeft[i] - coeffL[1]) / coeffL[2]
+    rsLeftFit[i] = coeffL[0]*exp((-zL^2)/2)+coeffL[3]
+    zR = (rsRight[i] - coeffR[1]) / coeffR[2]
+    rsRightFit[i] = coeffR[0]*exp((-zR^2)/2)+coeffR[3]
+ENDFOR
+
+;Check for floating underflow error
+floating_point_underflow = 32
+status = CHECK_MATH()
+IF (status AND NOT floating_point_underflow) NE 0 THEN BEGIN
+    ;Report any other math errors
+    PRINT, 'IDL CHECK_MATH() error: ' + STRTRIM(status, 2)
+ENDIF
+
+;Restore original reporting condition
+!EXCEPT = currentExcept
+
+IF KEYWORD_SET(inputScreen) THEN BEGIN
+    IF inputScreen EQ 1 THEN BEGIN
+        ;;Colors
+        DEVICE, DECOMPOSED=0
+        LOADCT, 39, /SILENT
+
+        !P.MULTI = [0,1,4,0,0]
+
+        PLOT, left,flux[left],PSYM=3,title=frame,$
+            yrange=[MIN(flux[[left,right]]),MAX(flux[[left,right]])], $
+            xrange=[MIN(left),MAX(right)], $
+            xtitle='Pixel',ytitle='Normalized flux'
+        OPLOT, right,flux[right],PSYM=3, COLOR=250
+        OPLOT, [centroid,centroid],[MIN(flux),MAX(flux)]
+
+        PLOT, leftDist, flux[left], PSYM=3, $
+            yrange=[MIN(flux[[left,right]]),MAX(flux[[left,right]])],$
+            xtitle = 'Distance from centroid',ytitle='Normalized flux'
+        OPLOT, rightDist, flux[right], PSYM=3, COLOR=250
+        OPLOT, rsLeft, rsLeftFit
+        OPLOT, rsRight, rsRightFit, COLOR = 250
+
+        measure = (rsRightFit/rsLeftFit) - (coeffR[3]/coeffL[3])
+        tot = TOTAL(ABS(measure))
+        PLOT, rsLeft, measure, $
+            title='Right Fit / Left Fit - Right Constant / Left Constant', $
+                xtitle='Distance from centroid'
+        OPLOT, [MIN(rsLeft),MAX(rsLeft)],[0.0,0.0],LINESTYLE=2
+
+        currentTot = FLTARR(N_ELEMENTS(rsLeft))
+        FOR i = 0, N_ELEMENTS(rsLeft)-1 DO BEGIN
+            currentTot[i] = TOTAL(ABS(measure[0:i]))
+        ENDFOR
+        PLOT, rsLeft, currentTot, title='Cumulative percent difference', $
+            xtitle='Distance from centroid'
+        OPLOT, [MIN(rsLeft),MAX(rsLeft)], [tot,tot], LINESTYLE=2
+        XYOUTS, 100,0.5*tot,STRTRIM(STRING(tot),2)
+    ENDIF
+ENDIF
+
+END
+
+;;------------------------------------------------------------------------------
+;;
 ;;      Main
 ;;
 
@@ -640,6 +902,7 @@ IF KEYWORD_SET(outFile) THEN BEGIN
     DEVICE, XSIZE=7, YSIZE=10, XOFFSET=0.5, YOFFSET=0.5, /INCHES
     DEVICE, FILENAME = outFile 
     normScreen = 1
+    diagScreen = 1
 ENDIF
 
 ;;Zero indexed order
@@ -712,14 +975,24 @@ ENDIF ELSE BEGIN
         SCREEN=normScreen)
 ENDELSE
 
-;;Interpolate across middle region
-middle = filter(flatDiv[middlePixels],30,TYPE='median')
-middleSpectrum = flatDiv[middlePixels]/middle
+;;If diagnostic plots requested
+IF KEYWORD_SET(diagScreen) THEN BEGIN
+    cLeft = centroid(normalizedLeft.spectrum)
+    cRight = centroid(normalizedRight.spectrum)
+    wcLeft = wingcompare(normalizedLeft.spectrum,cLeft.centroid,cLeft.left,$
+        cLeft.right,inputFrame,SCREEN=1)
+    wcRight = wingcompare(normalizedRight.spectrum,cRight.centroid,cRight.left,$
+        cRight.right,inputFrame,SCREEN=1)
+ENDIF
 
 ;;Close outout file
 IF KEYWORD_SET(outFile) THEN BEGIN
     DEVICE, /CLOSE_FILE
 ENDIF
+
+;;Interpolate across middle region
+middle = filter(flatDiv[middlePixels],30,TYPE='median')
+middleSpectrum = flatDiv[middlePixels]/middle
 
 output = [normalizedLeft.spectrum,middleSpectrum,normalizedRight.spectrum]
 
