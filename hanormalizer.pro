@@ -20,13 +20,15 @@
 ;;      Daniel Hatcher, 2018
 ;;Notes:
 ;;      Expected format for flat list
-;;      #Date         Frame
-;;      YYYY-MM-DD    12345
+;;      ----|----10---|----20---|
+;;      #Date        Frame
+;;      YYYY-MM-DD   12345
 ;;-
 
 PRO preferences
 
 COMPILE_OPT IDL2
+ON_ERROR, 3
 
 ;;Directory containing flat list
 flatListDir = '/home/central/hatch1dw/Programs/S3_Analysis/'
@@ -63,13 +65,22 @@ END
 ;;      flat    :   string frame number of length 5
 ;;Author and history:
 ;;      Daniel Hatcher, 2018
+;;Notes:
+;;      Expected format for flat list
+;;      ----|----10---|----20---|
+;;      #Date        Frame
+;;      YYYY-MM-DD   12345
 ;;-
 
 FUNCTION locateflat, inputDate
 
 COMPILE_OPT IDL2
+ON_ERROR, 3
 
-;;Check input
+;;Error handling for type conversion
+ON_IOERROR, error
+
+;;Check date input
 IF STRCMP(SIZE(inputDate,/TNAME),'STRING') EQ 0 THEN BEGIN
     MESSAGE, 'Input is not of type STRING!'
 ENDIF
@@ -82,7 +93,7 @@ OPENR, logicalUnitNumber, !FLATLIST, /GET_LUN
 numLines = FILE_LINES(!FLATLIST)
 
 line = ''
-locateError = 1B
+locateError = 1
 FOR i = 0, numLines-1 DO BEGIN
     READF, logicalUnitNumber, line
     firstCharacter = STRMID(line,0,1)
@@ -91,19 +102,30 @@ FOR i = 0, numLines-1 DO BEGIN
         flatDate = STRMID(line,0,10)
         flatFrame = STRMID(line,13,5)
         IF STRCMP(flatDate,inputDate) EQ 1 THEN BEGIN
-            locateError = 0B
-            BREAK        
-        ENDIF
+            ;;Check if flat frame string is numeric
+            longFrame = LONG(flatFrame)
+            ;;Check if flat frame > 10000
+            IF longFrame GT 10000 THEN BEGIN 
+                locateError = 0
+                BREAK
+            ENDIF ELSE BEGIN
+                MESSAGE, 'Frame number too small!'
+            ENDELSE
+        ENDIF 
     ENDIF
 ENDFOR
+
+IF locateError THEN BEGIN
+    MESSAGE, 'Unable to match date '+inputDate+'!'
+ENDIF
+
 CLOSE, logicalUnitNumber
 FREE_LUN, logicalUnitNumber
 
-IF locateError THEN BEGIN
-    MESSAGE, "Flat for date "+inputDate+" not found!"
-ENDIF
-
 RETURN, flatFrame
+
+;;Type conversion error label
+error: MESSAGE, 'Flat frame is not numeric!'
 
 END
 
@@ -136,6 +158,7 @@ END
 FUNCTION readflat, inputFrame
 
 COMPILE_OPT IDL2
+ON_ERROR, 3
 
 ;;Check input
 IF STRCMP(SIZE(inputFrame,/TNAME),'STRING') EQ 0 THEN BEGIN
@@ -218,6 +241,7 @@ END
 FUNCTION filter, inputArray, inputWidth, TYPE=type
 
 COMPILE_OPT IDL2
+ON_ERROR, 3
 
 ;;Check input
 arraySize = SIZE(inputArray)
@@ -298,6 +322,7 @@ FUNCTION zscorepeaks,inputData,LAG=inputLag,T=inputT,INF=inputInf, $
     SCREEN=inputScreen
 
 COMPILE_OPT IDL2
+ON_ERROR, 3
 
 ;;Check input
 dataSize = SIZE(inputData)
@@ -427,6 +452,7 @@ END
 FUNCTION centroid, inputFlux, FRAME=inputFrame, SCREEN=inputScreen
 
 COMPILE_OPT IDL2
+ON_ERROR, 3
 
 inputSize = SIZE(inputFlux)
 IF inputSize[0] GT 1 THEN BEGIN
@@ -573,6 +599,7 @@ FUNCTION contnorm, wave, flux, pixelHa, FRAME=frame, WIDTH=inputWidth, $
     SCREEN=inputScreen
 
 COMPILE_OPT IDL2
+ON_ERROR, 3
 
 ;;Check inputs
 waveSize = SIZE(wave)
@@ -750,6 +777,7 @@ END
 PRO wingcompare, flux, centroid, left, right, frame, SCREEN=inputScreen
 
 COMPILE_OPT IDL2
+ON_ERROR, 3
 
 leftDist = ABS(left-centroid)
 rightDist = ABS(right-centroid)
@@ -872,6 +900,7 @@ FUNCTION hanormalizer,inputFlux,inputWave,inputDate,inputFrame,PRENORM=prenorm,$
     OUTFILE=outFile,FLAT=inputFlat
 
 COMPILE_OPT IDL2
+ON_ERROR, 3
 
 ;;Define system variables
 preferences
