@@ -56,7 +56,7 @@ END
 ;;Purpose:
 ;;      Locate flat frame number using date and flat list in preferences
 ;;Calling sequence:
-;;      Reuslt = locateflat(inputDate)
+;;      Result = locateflat(inputDate)
 ;;Positional parameters:
 ;;      inputDate   :   string formatted YYYY-MM-DD   
 ;;Keyword parameters:
