@@ -64,6 +64,11 @@ END
 ;;      flat    :   string frame number of length 5
 ;;Author and history:
 ;;      Daniel Hatcher, 2018
+;;Notes:
+;;      Expected format for flat list
+;;      ----|----10---|----20---|
+;;      #Date        Frame
+;;      YYYY-MM-DD   12345
 ;;-
 
 FUNCTION locateflat, inputDate
@@ -71,20 +76,23 @@ FUNCTION locateflat, inputDate
 COMPILE_OPT IDL2
 ON_ERROR, 3
 
-;;Check input
+;;Error handling for type conversion
+ON_IOERROR, error
+
+;;Check date input
 IF STRCMP(SIZE(inputDate,/TNAME),'STRING') EQ 0 THEN BEGIN
     MESSAGE, 'Input is not of type STRING!'
 ENDIF
 IF STRLEN(inputDate) NE 10 THEN BEGIN
     MESSAGE, 'Input is not 10 characters long!'
-ENDIF 
+ENDIF
 
 ;;Read flat dates and frame numbers from list
 OPENR, logicalUnitNumber, !FLATLIST, /GET_LUN
 numLines = FILE_LINES(!FLATLIST)
 
 line = ''
-locateError = 1B
+locateError = 1
 FOR i = 0, numLines-1 DO BEGIN
     READF, logicalUnitNumber, line
     firstCharacter = STRMID(line,0,1)
@@ -93,19 +101,30 @@ FOR i = 0, numLines-1 DO BEGIN
         flatDate = STRMID(line,0,10)
         flatFrame = STRMID(line,13,5)
         IF STRCMP(flatDate,inputDate) EQ 1 THEN BEGIN
-            locateError = 0B
-            BREAK        
+            ;;Check if flat frame string is numeric
+            longFrame = LONG(flatFrame)
+            ;;Check if flat frame > 10000
+            IF longFrame GT 10000 THEN BEGIN
+                locateError = 0
+                BREAK
+            ENDIF ELSE BEGIN
+                MESSAGE, 'Frame number too small!'
+            ENDELSE
         ENDIF
     ENDIF
 ENDFOR
+
+IF locateError THEN BEGIN
+    MESSAGE, 'Unable to match date '+inputDate+'!'
+ENDIF
+
 CLOSE, logicalUnitNumber
 FREE_LUN, logicalUnitNumber
 
-IF locateError THEN BEGIN
-    MESSAGE, "Flat for date "+inputDate+" not found!"
-ENDIF
-
 RETURN, flatFrame
+
+;;Type conversion error label
+error: MESSAGE, 'Flat frame is not numeric!'
 
 END
 
@@ -669,10 +688,10 @@ FOR j = num-1, extreme, -1 DO BEGIN
 ENDFOR
 
 ;;Wing pixel locations
-length = num - rightStop
-left = LINDGEN(length,START=leftStop-length)
-right = LINDGEN(length,START=rightStop)
+left = LINDGEN(leftStop+1)
+right = LINDGEN(num-rightStop,START=rightStop)
 
+;;Flux values at left, right pixels
 fluxLeft = sFlux[left]
 fluxRight = SFlux[right]
 
@@ -707,7 +726,7 @@ floating_point_underflow = 32
 status = CHECK_MATH()
 IF (status AND NOT floating_point_underflow) NE 0 THEN BEGIN
     ;;Report any other math errors
-    MESSAGE, 'IDL CHECK_MATH() error: ' + STRTRIM(status, 2)
+    PRINT, 'IDL CHECK_MATH() error: ' + STRTRIM(status, 2)
 ENDIF
 
 ;;Restore original reporting condition
@@ -767,25 +786,25 @@ COMPILE_OPT IDL2
 leftDist = ABS(left-centroid)
 rightDist = ABS(right-centroid)
 
-;Turn off math error reporting to suppress benign underflow error messages
-;that sometimes occur when fitting gaussian
+;;Turn off math error reporting to suppress benign underflow error messages
+;;that sometimes occur when fitting gaussian
 currentExcept = !EXCEPT
 !EXCEPT = 0
 
-;Flush current math error register
+;;Flush current math error register
 void = CHECK_MATH()
 
-;Fit left and right gaussians
+;;Fit left and right gaussians
 nterms = 4
 fitL = GAUSSFIT(leftDist,flux[left],coeffL,NTERMS=nterms)
 fitR = GAUSSFIT(rightDist,flux[right],coeffR,NTERMS=nterms)
 
-;Resample
+;;Resample
 rsLeft = FINDGEN(2*N_ELEMENTS(left),START=MIN([leftDist,rightDist]),$
     INCREMENT=0.5)
 rsRight = rsLeft
 
-;Calculate fit at resampled points
+;;Calculate fit at resampled points
 rsLeftFit = FLTARR(N_ELEMENTS(rsLeft))
 rsRightFit = FLTARR(N_ELEMENTS(rsRight))
 FOR i = 0, N_ELEMENTS(rsLeft)-1 DO BEGIN
@@ -795,15 +814,15 @@ FOR i = 0, N_ELEMENTS(rsLeft)-1 DO BEGIN
     rsRightFit[i] = coeffR[0]*exp((-zR^2)/2)+coeffR[3]
 ENDFOR
 
-;Check for floating underflow error
+;;Check for floating underflow error
 floating_point_underflow = 32
 status = CHECK_MATH()
 IF (status AND NOT floating_point_underflow) NE 0 THEN BEGIN
-    ;Report any other math errors
+    ;;Report any other math errors
     PRINT, 'IDL CHECK_MATH() error: ' + STRTRIM(status, 2)
 ENDIF
 
-;Restore original reporting condition
+;;Restore original reporting condition
 !EXCEPT = currentExcept
 
 IF KEYWORD_SET(inputScreen) THEN BEGIN
@@ -839,10 +858,10 @@ IF KEYWORD_SET(inputScreen) THEN BEGIN
         FOR i = 0, N_ELEMENTS(rsLeft)-1 DO BEGIN
             currentTot[i] = TOTAL(ABS(measure[0:i]))
         ENDFOR
-        PLOT, rsLeft, currentTot, title='Cumulative percent difference', $
+        titleString = 'Cumulative percent difference = '+STRTRIM(STRING(tot),2)
+        PLOT, rsLeft, currentTot, title=titleString, $
             xtitle='Distance from centroid'
         OPLOT, [MIN(rsLeft),MAX(rsLeft)], [tot,tot], LINESTYLE=2
-        XYOUTS, 100,0.5*tot,STRTRIM(STRING(tot),2)
     ENDIF
 ENDIF
 
@@ -857,7 +876,7 @@ END
 ;;Name:
 ;;      bluenormalizer
 ;;Purpose:
-;;      Continuum normalization of SSS order 0
+;;      Continuum normalization of SSS order 0 (H8 and He)
 ;;Calling sequence:
 ;;      Result = bluenormalizer(inputFlux,inputWave,inputDate,inputFrame,
 ;;      [,PRENORM=integer][,WIDTH=integer or array][,NORMSCREEN=binary]
@@ -890,7 +909,7 @@ ON_ERROR, 3
 ;;Define system variables
 preferences
 
-;;Set keyword default values
+;;Set keyword default values if not provided
 IF NOT KEYWORD_SET(normScreen) THEN BEGIN
     normScreen = 0
 ENDIF
@@ -979,10 +998,10 @@ ENDELSE
 IF KEYWORD_SET(diagScreen) THEN BEGIN
     cLeft = centroid(normalizedLeft.spectrum)
     cRight = centroid(normalizedRight.spectrum)
-    wcLeft = wingcompare(normalizedLeft.spectrum,cLeft.centroid,cLeft.left,$
-        cLeft.right,inputFrame,SCREEN=1)
-    wcRight = wingcompare(normalizedRight.spectrum,cRight.centroid,cRight.left,$
-        cRight.right,inputFrame,SCREEN=1)
+    wingcompare,normalizedLeft.spectrum,cLeft.centroid,cLeft.left,$
+        cLeft.right,inputFrame+' H8',SCREEN=1
+    wingcompare,normalizedRight.spectrum,cRight.centroid,cRight.left,$
+        cRight.right,inputFrame+' He',SCREEN=1
 ENDIF
 
 ;;Close outout file
@@ -991,10 +1010,21 @@ IF KEYWORD_SET(outFile) THEN BEGIN
 ENDIF
 
 ;;Interpolate across middle region
-middle = filter(flatDiv[middlePixels],30,TYPE='median')
+middle = filter(flatDiv[middlePixels],15,TYPE='median')
 middleSpectrum = flatDiv[middlePixels]/middle
 
 output = [normalizedLeft.spectrum,middleSpectrum,normalizedRight.spectrum]
+
+;!P.MULTI = [0,1,2,0,0]
+
+;PLOT, wave, flatDiv, title=inputFrame
+;OPLOT, wave, [normalizedLeft.continuum,middle,normalizedRight.continuum], LINESTYLE=2 
+;OPLOT, [wave[leftBreak],wave[leftBreak]], [MIN(flatDiv),MAX(flatDiv)]
+;OPLOT, [wave[rightBreak],wave[rightBreak]], [MIN(flatDiv),MAX(flatDiv)]
+
+;PLOT, wave, output
+;OPLOT, [wave[leftBreak],wave[leftBreak]], [MIN(output),MAX(output)]
+;OPLOT, [wave[rightBreak],wave[rightBreak]], [MIN(output),MAX(output)]
 
 RETURN, output
 
