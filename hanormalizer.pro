@@ -624,6 +624,14 @@ IF NOT KEYWORD_SET(inputWidth) THEN BEGIN
     ;;Buffer around Ha core not to be searched
     coreBuffer = 20
 
+    ;;Check if maximum search width exceeded
+    IF (pixelHa-searchWidth) LT 0 OR (pixelHa+searchWidth) GT fluxSize[1] THEN $
+        BEGIN
+        PRINT, "Shoulder search width is too large!"
+        PRINT, "Using maximum search width!"
+        searchWidth = MIN([pixleHa,fluxSize[1]-pixelHa])    
+    ENDIF
+
     ;;Create search indices
     leftSearch = LINDGEN(searchWidth-coreBuffer,START=pixelHa-searchWidth)
     ;;Search starting from right end of spectrum (reversed)
