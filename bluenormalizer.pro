@@ -948,8 +948,8 @@ ENDELSE
 flatDiv = flux / flat.normsmooth[*,order]
 
 ;;Break points
-leftBreak = 200
-rightBreak = 290
+leftBreak = 180
+rightBreak = 300
 
 ;;Define regions
 leftPixels = LINDGEN(leftBreak)
@@ -1010,15 +1010,17 @@ IF KEYWORD_SET(outFile) THEN BEGIN
 ENDIF
 
 ;;Interpolate across middle region
-middle = filter(flatDiv[middlePixels],15,TYPE='median')
+middleSlope = REGRESS([leftPixels[-1],rightPixels[0]],$
+    [normalizedLeft.continuum[-1],normalizedRight.continuum[0]],CONST=const)
+middle = middlePixels*middleSlope[0] + const
 middleSpectrum = flatDiv[middlePixels]/middle
 
 output = [normalizedLeft.spectrum,middleSpectrum,normalizedRight.spectrum]
 
 ;!P.MULTI = [0,1,2,0,0]
 
-;PLOT, wave, flatDiv, title=inputFrame
-;OPLOT, wave, [normalizedLeft.continuum,middle,normalizedRight.continuum], LINESTYLE=2 
+;PLOT, wave, flatDiv, title=inputFrame, PSYM=3
+;PLOT, wave, [normalizedLeft.continuum,middle,normalizedRight.continuum], LINESTYLE=2 
 ;OPLOT, [wave[leftBreak],wave[leftBreak]], [MIN(flatDiv),MAX(flatDiv)]
 ;OPLOT, [wave[rightBreak],wave[rightBreak]], [MIN(flatDiv),MAX(flatDiv)]
 
