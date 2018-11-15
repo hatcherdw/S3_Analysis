@@ -20,8 +20,9 @@
 ;;      Daniel Hatcher, 2018
 ;;Notes:
 ;;      Expected format for flat list
-;;      #Date         Frame
-;;      YYYY-MM-DD    12345
+;;      ----|----10---|----20---|
+;;      #Date        Frame
+;;      YYYY-MM-DD   12345
 ;;-
 
 PRO preferences
@@ -407,6 +408,7 @@ IF KEYWORD_SET(inputScreen) THEN BEGIN
         OPLOT, upper
         OPLOT, lower
         PLOT, signals, title = 'Signals', yrange=[-1.5,1.5]
+        !P.MULTI = 0
     ENDIF
 ENDIF
 
@@ -442,6 +444,7 @@ END
 ;;      FRAME   :   string frame number (for plotting)
 ;;      WIDTH   :   Feature width, dynamic if not provided
 ;;      SCREEN  :   Screen output flag, 1 is on
+;;      PASS1WIDTH  :   Width of first median boxcar (optional)
 ;;Output:
 ;;      output  :   structure with tags:
 ;;          continuum   :   512x1 estimate of the continuum
@@ -455,7 +458,7 @@ END
 ;;-
 
 FUNCTION contnorm, wave, flux, index, FRAME=frame, WIDTH=inputWidth, $
-    SCREEN=inputScreen
+    SCREEN=inputScreen, PASS1WIDTH=inputPass1
 
 COMPILE_OPT IDL2
 ON_ERROR, 3
@@ -537,8 +540,23 @@ leftPixels = LINDGEN(index-width)
 rightPixels = LINDGEN(totalPixels-(index+width),START=index+width)
 patchedPixels = LINDGEN((width*2)+1,START=index-width)
 
+;;If 1st pass width provided, use
+IF KEYWORD_SET(inputPass1) THEN BEGIN
+    ;;Check type
+    intCodes = [2,3,12,13,14]
+    typeCode = SIZE(inputPass1,/TYPE)
+    ind = WHERE(typeCode EQ intCodes, count)
+    IF count GT 0 THEN BEGIN
+        medianWidth = inputPass1
+    ENDIF ELSE BEGIN
+        MESSAGE, '1st pass width not an integer!'
+    ENDELSE
+;;Default 1st pass width
+ENDIF ELSE BEGIN
+    medianWidth = 30
+ENDELSE
+
 ;;Median filter left and right separately
-medianWidth = 30
 medianLeft = filter(flux[leftPixels],medianWidth,TYPE='median')
 medianRight = filter(flux[rightPixels],medianWidth, $
     TYPE='median')
@@ -596,6 +614,8 @@ IF KEYWORD_SET(inputScreen) THEN BEGIN
         OPLOT, [wave[0],wave[-1]],[1.02,1.02],LINESTYLE=2
         OPLOT, [wave[0],wave[-1]],[0.97,0.97]
         OPLOT, [wave[0],wave[-1]],[1.03,1.03]
+        
+        !P.MULTI = 0
     ENDIF
 ENDIF
 
@@ -862,6 +882,8 @@ IF KEYWORD_SET(inputScreen) THEN BEGIN
         PLOT, rsLeft, currentTot, title=titleString, $
             xtitle='Distance from centroid'
         OPLOT, [MIN(rsLeft),MAX(rsLeft)], [tot,tot], LINESTYLE=2
+        
+        !P.MULTI = 0
     ENDIF
 ENDIF
 
@@ -927,12 +949,6 @@ ENDIF
 ;;Zero indexed order
 order = 0
 
-;;H8 lab frame wavelength
-H8 = 388.81
-
-;;Hepsilon lab frame wavelength
-He = 396.91
-
 ;;Select order
 flux = inputFlux[*,order]
 wave = inputWave[*,order]
@@ -941,24 +957,43 @@ wave = inputWave[*,order]
 IF NOT KEYWORD_SET(inputFlat) THEN BEGIN
     flat = readflat(locateflat(inputDate))
 ENDIF ELSE BEGIN
-    flat = readflat(inputFlat)
+    ;;Check input type
+    IF SIZE(inputFlat,/TYPE) EQ 7 THEN BEGIN
+        flat = readflat(inputFlat)
+    ENDIF ELSE BEGIN
+        MESSAGE, 'Input flat is not a string!'
+    ENDELSE
 ENDELSE
 
 ;;Flat division 
 flatDiv = flux / flat.normsmooth[*,order]
 
 ;;Break points
-leftBreak = 180
-rightBreak = 300
+;;Frame 22684 first with new CCD
+IF LONG(inputFrame) GE 22684 THEN BEGIN
+    leftBreak = 180
+    rightBreak = 300
+ENDIF ELSE BEGIN
+    MESSAGE, 'Frame number indicates OLD CCD'
+ENDELSE
 
-;;Define regions
-leftPixels = LINDGEN(leftBreak)
-middlePixels = LINDGEN(rightBreak-leftBreak,START=leftBreak)
-rightPixels = LINDGEN(512-rightBreak,START=rightBreak)
-leftFlux = flatDiv[leftPixels]
-rightFlux = flatDiv[rightPixels]
-leftWave = wave[leftPixels]
-rightWave = wave[rightPixels]
+;;First pass width
+pass1Width = 30
+
+;;Include some middle region to avoid edge truncation at break points
+leftPixelsPlus = LINDGEN(leftBreak+pass1Width)
+rightPixelsPlus = LINDGEN(512-(rightBreak-pass1Width),$
+    START=rightBreak-pass1Width)
+leftFlux = flatDiv[leftPixelsPlus]
+rightFlux = flatDiv[rightPixelsPlus]
+leftWave = wave[leftPixelsPlus]
+rightWave = wave[rightPixelsPlus]
+
+;;H8 lab frame wavelength
+H8 = 388.81
+
+;;Hepsilon lab frame wavelength
+He = 396.91
 
 ;;Find index closest to wavelengths
 distanceH8 = ABS(leftWave-H8)
@@ -966,42 +1001,49 @@ minDistanceH8 = MIN(distanceH8,indexH8)
 distanceHe = ABS(rightWave-He)
 minDistanceHe = MIN(distanceHe,indexHe) 
 
-;;If width(s) provided
+;;If feature width(s) provided
 IF KEYWORD_SET(inputWidth) THEN BEGIN
     numWidths = N_ELEMENTS(inputWidth)
     ;;Integer width
     IF numWidths EQ 1 THEN BEGIN
         normalizedLeft = contnorm(leftWave,leftFlux,indexH8,FRAME=inputFrame,$
-            WIDTH=inputWidth,SCREEN=normScreen)
+            WIDTH=inputWidth,SCREEN=normScreen,PASS1WIDTH=pass1Width)
         normalizedRight = contnorm(rightWave,rightFlux,indexHe,$
-            FRAME=inputFrame,WIDTH=inputWidth,SCREEN=normScreen)
+            FRAME=inputFrame,WIDTH=inputWidth,SCREEN=normScreen,$
+            PASS1WIDTH=pass1Width)
     ;;Array of widths
     ENDIF ELSE IF numWidths EQ 2 THEN BEGIN
         ;;Array element 0 is H8 width
         normalizedLeft = contnorm(leftWave,leftFlux,indexH8,FRAME=inputFrame,$
-            WIDTH=inputWidth[0],SCREEN=normScreen)
+            WIDTH=inputWidth[0],SCREEN=normScreen,PASS1WIDTH=pass1Width)
         ;;Array element 1 is He width
         normalizedRight = contnorm(rightWave,rightFlux,indexHe,$
-            FRAME=inputFrame,WIDTH=inputWidth[1],SCREEN=normScreen)
+            FRAME=inputFrame,WIDTH=inputWidth[1],SCREEN=normScreen,$
+            PASS1WIDTH=pass1Width)
     ENDIF ELSE BEGIN
         MESSAGE, "Width must be intger or 2-element array of integers!"
     ENDELSE
 ;;No widths
 ENDIF ELSE BEGIN
     normalizedLeft = contnorm(leftWave,leftFlux,indexH8,FRAME=inputFrame,$
-        SCREEN=normScreen)
+        SCREEN=normScreen,PASS1WIDTH=pass1Width)
     normalizedRight = contnorm(rightWave,rightFlux,indexHe,FRAME=inputFrame,$
-        SCREEN=normScreen)
+        SCREEN=normScreen,PASS1WIDTH=pass1Width)
 ENDELSE
+
+;;Define regions used to subset contnorm output
+leftPixels = LINDGEN(leftBreak)
+middlePixels = LINDGEN(rightBreak-leftBreak,START=leftBreak)
+rightPixels = LINDGEN(512-rightBreak,START=pass1Width)
 
 ;;If diagnostic plots requested
 IF KEYWORD_SET(diagScreen) THEN BEGIN
-    cLeft = centroid(normalizedLeft.spectrum)
-    cRight = centroid(normalizedRight.spectrum)
-    wingcompare,normalizedLeft.spectrum,cLeft.centroid,cLeft.left,$
+    cLeft = centroid(normalizedLeft.spectrum[leftPixels])
+    cRight = centroid(normalizedRight.spectrum[rightPixels])
+    wingcompare,normalizedLeft.spectrum[leftPixels],cLeft.centroid,cLeft.left,$
         cLeft.right,inputFrame+' H8',SCREEN=1
-    wingcompare,normalizedRight.spectrum,cRight.centroid,cRight.left,$
-        cRight.right,inputFrame+' He',SCREEN=1
+    wingcompare,normalizedRight.spectrum[rightPixels],cRight.centroid,$
+        cRight.left,cRight.right,inputFrame+' He',SCREEN=1
 ENDIF
 
 ;;Close outout file
@@ -1010,23 +1052,14 @@ IF KEYWORD_SET(outFile) THEN BEGIN
 ENDIF
 
 ;;Interpolate across middle region
-middleSlope = REGRESS([leftPixels[-1],rightPixels[0]],$
-    [normalizedLeft.continuum[-1],normalizedRight.continuum[0]],CONST=const)
-middle = middlePixels*middleSlope[0] + const
-middleSpectrum = flatDiv[middlePixels]/middle
+middleSlope = REGRESS([leftPixelsPlus[leftBreak],rightPixelsPlus[pass1Width]],$
+    [normalizedLeft.continuum[-pass1Width],$
+    normalizedRight.continuum[pass1Width]],CONST=const)
+middleCont = middlePixels*middleSlope[0] + const
+middleSpectrum = flatDiv[middlePixels]/middleCont
 
-output = [normalizedLeft.spectrum,middleSpectrum,normalizedRight.spectrum]
-
-;!P.MULTI = [0,1,2,0,0]
-
-;PLOT, wave, flatDiv, title=inputFrame, PSYM=3
-;PLOT, wave, [normalizedLeft.continuum,middle,normalizedRight.continuum], LINESTYLE=2 
-;OPLOT, [wave[leftBreak],wave[leftBreak]], [MIN(flatDiv),MAX(flatDiv)]
-;OPLOT, [wave[rightBreak],wave[rightBreak]], [MIN(flatDiv),MAX(flatDiv)]
-
-;PLOT, wave, output
-;OPLOT, [wave[leftBreak],wave[leftBreak]], [MIN(output),MAX(output)]
-;OPLOT, [wave[rightBreak],wave[rightBreak]], [MIN(output),MAX(output)]
+output = [normalizedLeft.spectrum[leftPixels],middleSpectrum,$
+    normalizedRight.spectrum[rightPixels]]
 
 RETURN, output
 
