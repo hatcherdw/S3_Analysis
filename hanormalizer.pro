@@ -890,6 +890,7 @@ END
 ;;      inputWave   :   512x16 array of floats
 ;;      inputDate   :   Date fromatted as YYYY-MM-DD
 ;;      inputFrame  :   string frame number of length 5 (for plotting)
+;;      inputName   :   string object name (HD number)
 ;;Optional parameters (keywords):
 ;;      PRENORM     :   order used for prenormalization, recommend 11 (index 0)
 ;;      WIDTH       :   width of H-alpha feature
@@ -897,15 +898,18 @@ END
 ;;      DIAGSCREEN  :   binary output flag for diagnostic plots, 1 is on
 ;;      OUTFILE     :   path to output file (PostScript)
 ;;      FLAT        :   string frame number of length 5 
+;;      TEXTFILE    :   path to ouput text file
 ;;Output:
 ;;      normalized.spectrum :   continuum normalized spectrum (512 float array)
+;;      PostScript file of normalizationa and diagnostic plots (optional)
+;;      ASCII file of wavelengths and normalized flux values       
 ;;Author and history:
 ;;      Daniel Hatcher, 2018
 ;;-
 
-FUNCTION hanormalizer,inputFlux,inputWave,inputDate,inputFrame,PRENORM=prenorm,$
-    WIDTH=inputWidth,NORMSCREEN=normScreen,DIAGSCREEN=diagScreen,$
-    OUTFILE=outFile,FLAT=inputFlat
+FUNCTION hanormalizer,inputFlux,inputWave,inputDate,inputFrame,inputName,$
+    PRENORM=prenorm,WIDTH=inputWidth,NORMSCREEN=normScreen,$
+    DIAGSCREEN=diagScreen,OUTFILE=outFile,FLAT=inputFlat,TEXTFILE=textFile
 
 COMPILE_OPT IDL2
 ON_ERROR, 3
@@ -987,6 +991,33 @@ ENDIF
 IF KEYWORD_SET(outFile) THEN BEGIN
     DEVICE, /CLOSE_FILE
 ENDIF
+
+;;Specify text file path
+IF KEYWORD_SET(textFile) THEN BEGIN
+    textFilePath = textFile    
+ENDIF ELSE BEGIN
+    ;;Default text file path
+    textFilePath = "normalized"+inputFrame.Compress()+".txt"
+ENDELSE
+
+;;Specify text file header
+header = "% " + inputName + STRING(10B) + $
+    "% UT      = " + inputDate + STRING(10B)  + $
+    "%" + STRING(10B) + $
+    "%" 
+
+;;Open text file
+OPENW, logicalUnitNumber, textFilePath, /GET_LUN
+
+;;Write to text file
+PRINTF, logicalUnitNumber, header
+FOR i = 0,N_ELEMENTS(wave)-1 DO BEGIN
+    PRINTF, logicalUnitNumber, wave[i], normalized.spectrum[i],$
+         format="(F11.6,F11.6)"
+ENDFOR
+
+CLOSE, logicalUnitNumber
+FREE_LUN, logicalUnitNumber
 
 RETURN, normalized.spectrum
 
