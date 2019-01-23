@@ -34,33 +34,39 @@ trimmedFrame = inputFrame.TRIM()
 
 ;List all files with matching frame number and save list 
 IF sysvarexists('!FRAMEDIR') THEN BEGIN
-    SPAWN, 'ls ' + !FRAMEDIR  + '*' + trimmedFrame + '*', savedFile
+    SPAWN, 'ls ' + !FRAMEDIR  + '*' + trimmedFrame + '*', savedFile,$
+         EXIT_STATUS=exitStatus
 ENDIF 
 
-;If more than one file found, stop
-foundFiles = SIZE(savedFile, /N_ELEMENTS)
-IF foundFiles GT 1 THEN BEGIN
-    MESSAGE, 'Found more than one file with frame number ' + trimmedFrame
-ENDIF
+;Check exit status
+IF exitStatus EQ 2 THEN BEGIN
+    output = 0
+ENDIF ELSE BEGIN
+    ;If more than one file found, stop
+    foundFiles = SIZE(savedFile, /N_ELEMENTS)
+    IF foundFiles GT 1 THEN BEGIN
+        MESSAGE, 'Found more than one file with frame number ' + trimmedFrame
+    ENDIF
 
-;Restore variables
-RESTORE, savedFile
+    ;Restore variables
+    RESTORE, savedFile
 
-;Normalize flux using median (useful for test flats)
-normFlux = FLTARR(512,16)
-FOR i = 0, 15 DO BEGIN
-    medianValue = MEDIAN(frame1[*,i])
-    normFlux[*,i] = frame1[*,i] / medianValue 
-ENDFOR
+    ;Normalize flux using median (useful for test flats)
+    normFlux = FLTARR(512,16)
+    FOR i = 0, 15 DO BEGIN
+        medianValue = MEDIAN(frame1[*,i])
+        normFlux[*,i] = frame1[*,i] / medianValue 
+    ENDFOR
 
-;Create output structure
-output = {restoreframeOutput, $
-    flux    :   frame1, $
-    wave    :   wavelengths, $
-    name    :   object_name, $
-    date    :   object_date, $
-    frame   :   inputFrame, $
-    normflux    :   normFlux}
+    ;Create output structure
+    output = {restoreframeOutput, $
+        flux    :   frame1, $
+        wave    :   wavelengths, $
+        name    :   object_name, $
+        date    :   object_date, $
+        frame   :   inputFrame, $
+        normflux    :   normFlux}
+ENDELSE
 
 RETURN, output
 
