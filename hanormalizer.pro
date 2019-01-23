@@ -116,7 +116,7 @@ FOR i = 0, numLines-1 DO BEGIN
 ENDFOR
 
 IF locateError THEN BEGIN
-    MESSAGE, 'Unable to match date '+inputDate+'!'
+    PRINT, 'Unable to match date '+inputDate+'!'
 ENDIF
 
 CLOSE, logicalUnitNumber
@@ -997,7 +997,7 @@ IF KEYWORD_SET(textFile) THEN BEGIN
     textFilePath = textFile    
 ENDIF ELSE BEGIN
     ;;Default text file path
-    textFilePath = "normalized"+inputFrame.Compress()+".txt"
+    textFilePath = "ASCII_OUTPUT/"+"normalized"+inputFrame.Compress()+".txt"
 ENDELSE
 
 ;;Specify text file header
