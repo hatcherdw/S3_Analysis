@@ -2,7 +2,7 @@ PRO protonormalizer
 
 @psplot
 DEVICE, FILENAME='proto.ps'
-frames = SINDGEN(28000,START='22000')
+frames = SINDGEN(21000,START='22000')
 FOR i = 0,N_ELEMENTS(frames)-1 DO BEGIN
     frame = frames[i]
     obj = restoreframe(frame=frame)
