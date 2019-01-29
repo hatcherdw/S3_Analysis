@@ -898,7 +898,7 @@ END
 ;;      DIAGSCREEN  :   binary output flag for diagnostic plots, 1 is on
 ;;      OUTFILE     :   path to output file (PostScript)
 ;;      FLAT        :   string frame number of length 5 
-;;      TEXTFILE    :   path to ouput text file
+;;      TEXTPATH    :   path to ouput text file
 ;;Output:
 ;;      normalized.spectrum :   continuum normalized spectrum (512 float array)
 ;;      PostScript file of normalizationa and diagnostic plots (optional)
@@ -909,7 +909,7 @@ END
 
 FUNCTION hanormalizer,inputFlux,inputWave,inputDate,inputFrame,inputName,$
     PRENORM=prenorm,WIDTH=inputWidth,NORMSCREEN=normScreen,$
-    DIAGSCREEN=diagScreen,OUTFILE=outFile,FLAT=inputFlat,TEXTFILE=textFile
+    DIAGSCREEN=diagScreen,OUTFILE=outFile,FLAT=inputFlat,TEXTPATH=textPath
 
 COMPILE_OPT IDL2
 ON_ERROR, 3
@@ -992,13 +992,16 @@ IF KEYWORD_SET(outFile) THEN BEGIN
     DEVICE, /CLOSE_FILE
 ENDIF
 
-;;Specify text file path
-IF KEYWORD_SET(textFile) THEN BEGIN
-    textFilePath = textFile    
-ENDIF ELSE BEGIN
+;;Was a text file path given?
+IF NOT KEYWORD_SET(textPath) THEN BEGIN
+    ;;Does output directory exist?
+    outDir = "ASCII_OTUPUT"
+    IF NOT FILE_TEST(outDir,/DIRECTORY) THEN BEGIN
+        SPAWN, "mkdir " + outDir
+    ENDIF
     ;;Default text file path
-    textFilePath = "ASCII_OUTPUT/"+"normalized"+inputFrame.Compress()+".txt"
-ENDELSE
+    textPath = outDir+"/"+"normalized"+inputFrame.Compress()+".txt"
+ENDIF
 
 ;;Specify text file header
 header = "% " + inputName + STRING(10B) + $
@@ -1007,7 +1010,7 @@ header = "% " + inputName + STRING(10B) + $
     "%" 
 
 ;;Open text file
-OPENW, logicalUnitNumber, textFilePath, /GET_LUN
+OPENW, logicalUnitNumber, textPath, /GET_LUN
 
 ;;Write to text file
 PRINTF, logicalUnitNumber, header
